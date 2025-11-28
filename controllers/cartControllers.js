@@ -26,6 +26,13 @@ export async function addToCart(req, res) {
     const { productId, qty } = req.body;
     const quantity = Number(qty) || 1;
 
+    if (product.isDeleted) {
+      return res.status(400).json({
+        success: false,
+        message: "This product is no longer available",
+      });
+    }
+
     if (!productId) {
       return res
         .status(400)

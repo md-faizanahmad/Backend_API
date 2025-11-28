@@ -1,6 +1,5 @@
 // controllers/checkoutController.js
-import Address from "../models/Address.js"; // assuming you have this
-// protect middleware should set req.userId
+import Address from "../models/Address.js";
 
 export const saveCheckoutSession = async (req, res) => {
   try {
