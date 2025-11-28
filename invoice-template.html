@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 32px;
+            font-size: 13px;
+            color: #111;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 22px;
+            margin-bottom: 6px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+
+        th {
+            background: #f5f5f5;
+            text-align: left;
+            font-weight: bold;
+        }
+
+        .total-box {
+            margin-top: 20px;
+            width: 200px;
+            float: right;
+            border: 1px solid #ddd;
+            padding: 10px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <div>
+            <h2>AZ-Store shop.</h2>
+            <p>myazstore.shop</p>
+        </div>
+        <div>
+            <p><strong>Order ID:</strong> {{ORDER_ID}}</p>
+            <p><strong>Date:</strong> {{ORDER_DATE}}</p>
+        </div>
+    </div>
+
+    <h1>Invoice</h1>
+
+    <h3>Billing Details</h3>
+    <p><strong>{{NAME}}</strong><br>
+        {{ADDRESS}}<br>
+        Phone: {{PHONE}}<br>
+    </p>
+
+    <h3>Items</h3>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Description</th>
+                <th>Qty</th>
+                <th>Price</th>
+                <th>Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ITEM_ROWS}}
+        </tbody>
+    </table>
+
+    <div class="total-box">
+        Grand Total: ₹{{TOTAL}}
+    </div>
+</body>
+
+</html>
