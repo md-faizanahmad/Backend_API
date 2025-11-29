@@ -56,10 +56,5 @@ categorySchema.virtual("children", {
   foreignField: "parent",
 });
 
-// Index for fast lookup
-/// update after test
-// categorySchema.index({ slug: 1 });
-// categorySchema.index({ parent: 1 });
-
 export default mongoose.models.Category ||
   mongoose.model("Category", categorySchema);

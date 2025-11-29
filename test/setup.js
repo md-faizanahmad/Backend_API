@@ -1,26 +1,47 @@
-// api/test/setup.js   ← FINAL VERSION THAT WORKS
-import { config } from "dotenv";
-import path from "path";
-
-// Load .env from ROOT (one level up)
-config({ path: path.resolve(process.cwd(), "../.env") });
-
-// Fake Razorpay keys so tests NEVER crash
-process.env.RAZORPAY_KEY_ID = "rzp_test_fake123";
-process.env.RAZORPAY_KEY_SECRET = "fake_secret_123456";
-process.env.NODE_ENV = "test";
+// tests/setup.js
+// Responsible for managing the in-memory MongoDB lifecycle and clearing collections.
+// Tests must import and call startTestDB() in a before hook.
 
 import mongoose from "mongoose";
+import { MongoMemoryServer } from "mongodb-memory-server";
 
-const testDB = process.env.MONGODB_URI
-  ? process.env.MONGODB_URI.replace(/MyStore_DB.*$/, "testdb")
-  : "mongodb://127.0.0.1:27017/testdb";
+let mongoServer = null;
 
-beforeAll(async () => {
-  await mongoose.connect(testDB);
-}, 60000);
+export async function startTestDB() {
+  // Safety guard: abort if NODE_ENV is not 'test' so we never touch a real DB.
+  if (process.env.NODE_ENV !== "test") {
+    throw new Error(
+      "startTestDB() called but NODE_ENV !== 'test' — aborting to avoid touching real DB."
+    );
+  }
 
-afterAll(async () => {
-  await mongoose.connection.db.dropDatabase();
-  await mongoose.disconnect();
-}, 60000);
+  mongoServer = await MongoMemoryServer.create();
+  const uri = mongoServer.getUri();
+
+  // Connect mongoose to the ephemeral in-memory server
+  await mongoose.connect(uri);
+  return uri;
+}
+
+export async function clearCollections() {
+  if (!mongoose.connection.readyState) return;
+  const collections = mongoose.connection.collections;
+  for (const name of Object.keys(collections)) {
+    await collections[name].deleteMany({});
+  }
+}
+
+export async function stopTestDB() {
+  try {
+    if (mongoose.connection.readyState) {
+      // Drop the in-memory DB and disconnect
+      await mongoose.connection.dropDatabase();
+      await mongoose.disconnect();
+    }
+  } finally {
+    if (mongoServer) {
+      await mongoServer.stop();
+      mongoServer = null;
+    }
+  }
+}
