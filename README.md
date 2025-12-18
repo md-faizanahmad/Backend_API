@@ -4,9 +4,9 @@ MyAZStore Backend API
 <ul> <li><strong>Runtime:</strong> Node.js (ES Modules)</li> <li><strong>Framework:</strong> Express.js</li> <li><strong>Database:</strong> MongoDB + Mongoose</li> <li><strong>Authentication:</strong> JWT + bcrypt</li> <li><strong>File Uploads:</strong> Multer + Cloudinary</li> <li><strong>Payments:</strong> Razorpay</li> <li><strong>Emailing:</strong> Nodemailer</li> <li><strong>PDF Generation:</strong> pdfkit + pdfkit-table</li> <li><strong>Validation:</strong> Zod</li> <li><strong>Testing:</strong> Node test runner + Supertest + MongoDB Memory Server</li> <li><strong>Serverless Ready:</strong> serverless-http</li> </ul>
 🔗 API Route Structure
 <strong>Shop / Public Routes</strong>
-<ul> <li>/v1/products</li> <li>/api/categories</li> <li>/v1/users</li> <li>/v1/wishlist</li> <li>/v1/cart</li> <li>/api/addresses</li> <li>/v1/orders</li> <li>/v1/checkout</li> <li>/v1/payment</li> <li>/v1/invoice</li> <li>/v1/notifications</li> <li>/api/hero</li> <li>/api/ai</li> </ul>
+<ul> <li>/v1/products</li> <li>/api/categories</li> <li>/v1/users</li> <li>/v1/wishlist</li> <li>/v1/cart</li> <li>/v1/addresses</li> <li>/v1/orders</li> <li>/v1/checkout</li> <li>/v1/payment</li> <li>/v1/invoice</li> <li>/v1/notifications</li> <li>/v1/hero</li> <li>/v1/ai</li> </ul>
 <strong>Admin Routes</strong>
-<ul> <li>/api/admin</li> <li>/api/admin/inventory</li> <li>/api/admin/profit</li> </ul>
+<ul> <li>/v1/admin</li> <li>/v1/admin/inventory</li> <li>/v1/admin/profit</li> </ul>
 ⚙️ Environment Variables
 <p>Create a <code>.env</code> file with:</p>
 PORT=
