@@ -1,4 +1,4 @@
-import Order from "../models/Order.js";
+import Order from "../../models/Order.js";
 
 export async function getDashboardCharts(req, res) {
   try {

@@ -6,10 +6,12 @@ export async function listNotifications(req, res) {
     const unreadOnly = req.query.unreadOnly === "true";
     const filter = {};
     if (unreadOnly) filter.read = false;
-    // recipient handling: admin vs user
-    if (req.user && req.user.role !== "admin") {
-      filter.recipient = req.user.id;
+
+    // If admin route → allow all notifications
+    if (!req.isAdmin) {
+      filter.recipient = req.userId;
     }
+
     const items = await Notification.find(filter)
       .sort({ createdAt: -1 })
       .limit(100)

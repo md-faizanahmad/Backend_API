@@ -27,6 +27,7 @@ const heroSchema = new mongoose.Schema(
     },
 
     backgroundImage: { type: String, required: true },
+    backgroundPublicId: { type: String, default: null },
   },
   { timestamps: true }
 );

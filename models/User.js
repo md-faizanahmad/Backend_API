@@ -21,7 +21,7 @@ const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     email: { type: String, unique: true, required: true },
-    // new added 27--11
+
     emailVerified: { type: Boolean, default: false },
     emailVerifiedAt: { type: Date },
 

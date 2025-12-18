@@ -1,18 +1,17 @@
 import express from "express";
-import upload from "../middlewares/upload.js";
 import { verifyAdminCookie } from "../middlewares/verifyAdmin.js";
 import { getHero, updateHero } from "../controllers/heroController.js";
+import imageService from "../utils/imageService.js";
 
 const router = express.Router();
 
 // PUBLIC route
 router.get("/", getHero);
 
-// ADMIN route
 router.put(
   "/",
   verifyAdminCookie,
-  upload.single("backgroundImage"),
+  imageService.multerArray("backgroundImage", 1),
   updateHero
 );
 

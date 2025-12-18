@@ -31,7 +31,7 @@ async function createAdmin() {
 
     const name = "Md Ahmad";
     const email = "admin@myazstore.com";
-    const plainPassword = "admin123";
+    const plainPassword = "Admin@7563";
 
     // Hash password
     const hashedPassword = await bcrypt.hash(plainPassword, 10);

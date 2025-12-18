@@ -1,92 +1,4 @@
-// // routes/checkoutRoutes.js
-// import express from "express";
-// import { verifyUserCookie } from "../middlewares/verifyUser.js";
-// import User from "../models/User.js";
-// import { z } from "zod";
-
-// const router = express.Router();
-
-// /* ----------------------------------------------------
-//    Zod validation
-// ---------------------------------------------------- */
-// const checkoutSessionSchema = z.object({
-//   addressId: z.string(),
-//   items: z
-//     .array(
-//       z.object({
-//         productId: z.string(),
-//         qty: z.number().min(1),
-//         price: z.number().min(0),
-//       })
-//     )
-//     .min(1),
-//   totalAmount: z.number().min(1),
-// });
-
-// /* ----------------------------------------------------
-//    1) SETUP CHECKOUT SESSION
-//    Called before redirecting to Razorpay
-// ---------------------------------------------------- */
-// router.post("/session", verifyUserCookie, async (req, res) => {
-//   const parsed = checkoutSessionSchema.safeParse(req.body);
-
-//   if (!parsed.success) {
-//     return res.status(400).json({
-//       success: false,
-//       message: "Invalid checkout data",
-//       errors: parsed.error.flatten(),
-//     });
-//   }
-
-//   const { addressId, items, totalAmount } = parsed.data;
-
-//   /* ---- Validate address belongs to user ---- */
-//   const user = await User.findById(req.userId);
-//   if (!user) {
-//     return res.status(404).json({
-//       success: false,
-//       message: "User not found",
-//     });
-//   }
-
-//   const address = user.addresses.find(
-//     (a) => a._id.toString() === addressId.toString()
-//   );
-
-//   if (!address) {
-//     return res.status(400).json({
-//       success: false,
-//       message: "Address not found or does not belong to user",
-//     });
-//   }
-
-//   /* ---- Store session ---- */
-//   req.session.checkout = {
-//     user: req.userId,
-//     addressId,
-//     items,
-//     totalAmount,
-//   };
-
-//   return res.json({
-//     success: true,
-//     message: "Checkout session saved",
-//   });
-// });
-
-// /* ----------------------------------------------------
-//    2) GET ACTIVE CHECKOUT SESSION (optional)
-// ---------------------------------------------------- */
-// router.get("/session", verifyUserCookie, (req, res) => {
-//   if (!req.session.checkout) {
-//     return res.json({ success: false, session: null });
-//   }
-
-//   res.json({ success: true, session: req.session.checkout });
-// });
-
-// export default router;
-//////////////////////////////////////////////// updated 26--11
+////////////Above one working with only if product in cart
 // routes/checkoutRoutes.js
 import express from "express";
 import { verifyUserCookie } from "../middlewares/verifyUser.js";
@@ -96,26 +8,29 @@ import Product from "../models/Product.js";
 const router = express.Router();
 
 /* -----------------------------------------------------------
-   Save Checkout Session in SIGNED HttpOnly Cookie
+   SAVE CHECKOUT SESSION (CART + BUY NOW)
 ----------------------------------------------------------- */
 router.post("/session", verifyUserCookie, async (req, res) => {
   try {
     const { addressId, items, totalAmount } = req.body;
+    const { quickbuy } = req.query;
 
-    if (!addressId || !items?.length || !totalAmount) {
+    if (!addressId) {
       return res.status(400).json({
         success: false,
-        message: "Missing checkout fields",
+        message: "addressId required",
       });
     }
 
-    // Validate user & address
+    // Validate user
     const user = await User.findById(req.userId);
     if (!user)
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
 
+    // Validate address
     const address = user.addresses.id(addressId);
     if (!address) {
       return res.status(400).json({
@@ -124,25 +39,80 @@ router.post("/session", verifyUserCookie, async (req, res) => {
       });
     }
 
-    // Validate items exist
-    for (const i of items) {
-      const product = await Product.findById(i.productId);
+    let finalItems = [];
+    let finalTotal = 0;
+
+    /* -------------------------------------------------
+       BUY NOW FLOW
+    ------------------------------------------------- */
+    if (quickbuy) {
+      const product = await Product.findById(quickbuy);
       if (!product)
+        return res.status(404).json({
+          success: false,
+          message: "Product not found",
+        });
+
+      if (product.stock < 1)
         return res.status(400).json({
           success: false,
-          message: "Product not found: " + i.productId,
+          message: "Product out of stock",
         });
+
+      const price = product.discountPrice ?? product.price;
+
+      finalItems = [
+        {
+          productId: product._id,
+          qty: 1,
+          price,
+        },
+      ];
+
+      finalTotal = price;
+    } else {
+      /* -------------------------------------------------
+       CART FLOW (Existing)
+    ------------------------------------------------- */
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Cart is empty",
+        });
+      }
+
+      if (typeof totalAmount !== "number" || totalAmount <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid totalAmount",
+        });
+      }
+
+      // Validate cart items
+      for (const i of items) {
+        const product = await Product.findById(i.productId);
+        if (!product)
+          return res.status(400).json({
+            success: false,
+            message: "Product not found: " + i.productId,
+          });
+      }
+
+      finalItems = items;
+      finalTotal = totalAmount;
     }
 
-    // Build small object → inside cookie
+    /* -------------------------------------------------
+       SAVE CHECKOUT SESSION (SIGNED COOKIE)
+    ------------------------------------------------- */
     const checkoutData = {
       userId: req.userId,
       addressId,
-      items,
-      totalAmount,
+      items: finalItems,
+      totalAmount: finalTotal,
+      createdAt: Date.now(),
     };
 
-    // Save signed HttpOnly cookie (10 minutes)
     res.cookie("checkout_session", checkoutData, {
       httpOnly: true,
       secure: true,
@@ -153,19 +123,14 @@ router.post("/session", verifyUserCookie, async (req, res) => {
       path: "/",
     });
 
-    res.json({ success: true, message: "Checkout session saved" });
+    res.json({ success: true });
   } catch (err) {
     console.error("CHECKOUT SESSION ERROR:", err);
-    res.status(500).json({ success: false, message: "Server error" });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
-});
-
-/* -----------------------------------------------------------
-   READ Checkout Session (Optional – for frontend reload)
------------------------------------------------------------ */
-router.get("/session", verifyUserCookie, (req, res) => {
-  const data = req.signedCookies.checkout_session || null;
-  res.json({ success: !!data, session: data });
 });
 
 export default router;

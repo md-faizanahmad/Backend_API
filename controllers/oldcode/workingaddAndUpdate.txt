@@ -1,0 +1,323 @@
+this is my old which work add and update with image working--// export const addProduct = async (req, res) => {
+//   try {
+//     const {
+//       name,
+//       description = "",
+//       price,
+//       discountPrice = 0,
+//       offers = "[]",
+//       stock,
+//       category,
+//       highlights: highlightsJson = "[]",
+//       specifications: specsJson = "{}",
+//       imageUrl: providedImageUrl,
+//     } = req.body;
+
+//     // Required validation
+//     if (
+//       !name?.trim() ||
+//       price === undefined ||
+//       stock === undefined ||
+//       !category
+//     ) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Name, price, stock and category are required",
+//       });
+//     }
+
+//     if (Number(price) <= 0)
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Price must be > 0" });
+
+//     if (Number(discountPrice) < 0)
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Discount price cannot be negative" });
+
+//     if (Number(discountPrice) >= Number(price))
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Discount must be lower than price" });
+
+//     if (Number(stock) < 0)
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Stock cannot be negative" });
+
+//     // Validate category exists and not soft-deleted
+//     const cat = await Category.findById(category).lean();
+//     if (!cat || cat.isDeleted) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Invalid or deleted category" });
+//     }
+
+//     // costPrice optional
+//     let costPrice = undefined;
+//     if (req.body.costPrice !== undefined && req.body.costPrice !== "") {
+//       const cp = Number(req.body.costPrice);
+//       if (isNaN(cp) || cp < 0) {
+//         return res
+//           .status(400)
+//           .json({ success: false, message: "Invalid cost price" });
+//       }
+//       costPrice = cp;
+//     }
+
+//     // Parse JSON inputs safely
+//     let highlights = [];
+//     try {
+//       const h = JSON.parse(highlightsJson);
+//       if (Array.isArray(h)) highlights = h.filter(Boolean);
+//     } catch {}
+
+//     let specifications = {};
+//     try {
+//       const s = JSON.parse(specsJson);
+//       if (s && typeof s === "object") specifications = s;
+//     } catch {}
+
+//     let offersArray = [];
+//     try {
+//       const o = JSON.parse(offers);
+//       if (Array.isArray(o)) offersArray = o.filter(Boolean);
+//     } catch {}
+
+//     // Unique slug
+//     const baseSlug = name
+//       .trim()
+//       .toLowerCase()
+//       .replace(/\s+/g, "-")
+//       .replace(/[^\w-]/g, "");
+//     const slug = `${baseSlug}-${Date.now()}`;
+
+//     // IMAGE handling: prefer req.files upload; else providedImageUrl; else placeholder
+//     let images = [];
+//     let imageUrl = null;
+
+//     if (req.files && req.files.length > 0) {
+//       for (const f of req.files) {
+//         const result = await uploadToCloudinary(f.buffer);
+//         images.push(result.secure_url);
+//       }
+//       imageUrl = images[0];
+//     } else if (providedImageUrl) {
+//       imageUrl = providedImageUrl;
+//       images = [providedImageUrl];
+//     } else {
+//       imageUrl = "https://via.placeholder.com/600x600.png?text=No+Image";
+//       images = [imageUrl];
+//     }
+
+//     const product = await Product.create({
+//       name: name.trim(),
+//       slug,
+//       description: description.trim(),
+//       price: Number(price),
+//       discountPrice: Number(discountPrice),
+//       costPrice: costPrice !== undefined ? costPrice : undefined,
+//       offers: offersArray,
+//       stock: Number(stock),
+//       category,
+//       highlights,
+//       specifications,
+//       imageUrl,
+//       images,
+//     });
+
+//     const populated = await Product.findById(product._id)
+//       .populate("category", "name slug")
+//       .lean();
+
+//     // Transform image URLs for delivery (auto quality/format)
+//     if (populated) {
+//       populated.imageUrl = cloudinaryOptimizeUrl(populated.imageUrl);
+//       populated.images = (populated.images || []).map(cloudinaryOptimizeUrl);
+//     }
+
+//     res.status(201).json({
+//       success: true,
+//       message: "Product created successfully",
+//       product: populated,
+//     });
+//   } catch (error) {
+//     console.error("ADD PRODUCT ERROR:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Server error: " + error.message,
+//     });
+//   }
+// };
+
+/* ============================================================
+   UPDATE PRODUCT
+   - supports image upload via uploadToCloudinary
+   - supports JSON parsing for highlights/specs/offers
+   - validates category and uses lean population for response
+============================================================ */
+// export const updateProduct = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+
+//     const product = await Product.findById(id);
+//     if (!product)
+//       return res
+//         .status(404)
+//         .json({ success: false, message: "Product not found" });
+
+//     const {
+//       name,
+//       description,
+//       price,
+//       discountPrice,
+//       offers,
+//       stock,
+//       category,
+//       highlights: highlightsJson,
+//       specifications: specsJson,
+//       imageUrl: providedImageUrl,
+//     } = req.body;
+
+//     // Validation
+//     if (price !== undefined && Number(price) <= 0) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Price must be greater than 0" });
+//     }
+//     if (discountPrice !== undefined && Number(discountPrice) < 0) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Discount price invalid" });
+//     }
+//     if (
+//       price !== undefined &&
+//       discountPrice !== undefined &&
+//       Number(discountPrice) >= Number(price)
+//     ) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Discount cannot be >= price" });
+//     }
+//     if (stock !== undefined && Number(stock) < 0) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Stock cannot be negative" });
+//     }
+
+//     // costPrice update if present
+//     if (req.body.costPrice !== undefined) {
+//       const cp = Number(req.body.costPrice);
+//       if (isNaN(cp) || cp < 0) {
+//         return res
+//           .status(400)
+//           .json({ success: false, message: "Invalid cost price" });
+//       }
+//       product.costPrice = cp;
+//     }
+
+//     // Parse JSON fields
+//     if (highlightsJson) {
+//       try {
+//         const parsed = JSON.parse(highlightsJson);
+//         if (Array.isArray(parsed)) product.highlights = parsed;
+//       } catch {}
+//     }
+//     if (specsJson) {
+//       try {
+//         const parsed = JSON.parse(specsJson);
+//         if (parsed && typeof parsed === "object")
+//           product.specifications = parsed;
+//       } catch {}
+//     }
+//     if (offers !== undefined) {
+//       try {
+//         const parsed = JSON.parse(offers);
+//         if (Array.isArray(parsed)) product.offers = parsed.filter(Boolean);
+//       } catch {}
+//     }
+
+//     // Basic updates
+//     if (name) product.name = name.trim();
+//     if (description !== undefined) product.description = description.trim();
+//     if (price !== undefined) product.price = Number(price);
+//     if (discountPrice !== undefined)
+//       product.discountPrice = Number(discountPrice);
+//     if (stock !== undefined) product.stock = Number(stock);
+
+//     // Category validation
+//     if (category) {
+//       const cat = await Category.findById(category).lean();
+//       if (!cat || cat.isDeleted) {
+//         return res
+//           .status(400)
+//           .json({ success: false, message: "Invalid or deleted category" });
+//       }
+//       product.category = category;
+//     }
+
+//     // Image handling
+//     if (req.files && req.files.length > 0) {
+//       const uploaded = [];
+//       for (const file of req.files) {
+//         const result = await uploadToCloudinary(file.buffer);
+//         uploaded.push(result.secure_url);
+//       }
+//       product.images = uploaded;
+//       product.imageUrl = uploaded[0];
+//     } else if (providedImageUrl) {
+//       product.images = [providedImageUrl];
+//       product.imageUrl = providedImageUrl;
+//     }
+
+//     await product.save();
+
+//     const populated = await Product.findById(id)
+//       .populate("category", "name slug")
+//       .lean();
+//     if (populated) {
+//       populated.imageUrl = cloudinaryOptimizeUrl(populated.imageUrl);
+//       populated.images = (populated.images || []).map(cloudinaryOptimizeUrl);
+//     }
+
+//     res.json({
+//       success: true,
+//       message: "Product updated successfully",
+//       product: populated,
+//     });
+//   } catch (error) {
+//     console.error("UPDATE PRODUCT ERROR:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Failed to update product: " + error.message,
+//     });
+//   }
+// }; and old uploadtocloudinary----// async function uploadToCloudinary(buffer) {
+//   return new Promise((resolve, reject) => {
+//     const stream = cloudinary.uploader.upload_stream(
+//       {
+//         folder: "MyStore/products",
+//         resource_type: "image",
+//       },
+//       (error, result) => {
+//         if (error) reject(error);
+//         else resolve(result);
+//       }
+//     );
+//     stream.end(buffer);
+//   });
+// } and optimizUrl--// function cloudinaryOptimizeUrl(url) {
+//   try {
+//     if (!url || typeof url !== "string") return url;
+//     const token = "/upload/";
+//     const idx = url.indexOf(token);
+//     if (idx === -1) return url;
+//     const prefix = url.slice(0, idx + token.length);
+//     const rest = url.slice(idx + token.length);
+//     const transform = "f_auto,q_auto,w_auto/";
+//     return `${prefix}${transform}${rest}`;
+//   } catch {
+//     return url;
+//   }
+// }---- this all working with adding and updating produc with images ---- i was uploading 2 -3 image and go with  new setup for cloundinary public_id so i can delete productimage from cloudinry when deleting product --- now all mess- where problem and cause

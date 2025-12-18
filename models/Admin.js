@@ -28,7 +28,35 @@ const adminSchema = new mongoose.Schema(
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
+    // ⭐ NEW
+    twoFactorEnabled: { type: Boolean, default: false },
+    twoFactorSecret: { type: String, default: null },
+
+    recoveryCodes: [
+      {
+        codeHash: { type: String, required: true },
+        used: { type: Boolean, default: false },
+        createdAt: { type: Date, default: Date.now },
+        usedAt: { type: Date },
+      },
+    ],
+
+    // ⭐ New: Trusted devices
+    trustedDevices: [
+      {
+        deviceId: { type: String, required: true },
+        userAgent: { type: String },
+        ip: { type: String },
+        createdAt: { type: Date, default: Date.now },
+        expiresAt: { type: Date, required: true },
+      },
+    ],
+
+    // ⭐ New: OTP lockout
+    otpFailedAttempts: { type: Number, default: 0 },
+    otpLockUntil: { type: Date, default: null },
   },
+
   { timestamps: true }
 );
 

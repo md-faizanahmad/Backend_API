@@ -69,11 +69,94 @@ export async function sendOtp(req, res) {
 
     // Email template
     const html = `
-      <div style="font-family: Arial; line-height:1.5">
-        <h2>Your ${purpose.toUpperCase()} verification code</h2>
-        <p style="font-size:20px; font-weight:bold; letter-spacing:2px">${otp}</p>
-        <p>This OTP expires in ${OTP_EXPIRE_MINUTES} minutes.</p>
-      </div>
+      <div style="font-family: Arial, Helvetica, sans-serif; background:#f3f4f6; padding:20px;">
+  <table
+    width="100%"
+    cellpadding="0"
+    cellspacing="0"
+    style="max-width:520px; margin:auto; background:#ffffff; border-radius:8px; overflow:hidden;"
+  >
+    <!-- HEADER -->
+    <tr>
+      <td style="background:#0f172a; padding:18px; text-align:center;">
+        <h1 style="color:#ffffff; font-size:20px; margin:0; font-weight:600;">
+          MyAZ Store
+        </h1>
+        <p style="color:#cbd5e1; font-size:13px; margin:4px 0 0;">
+          Secure Verification
+        </p>
+      </td>
+    </tr>
+
+    <!-- BODY -->
+    <tr>
+      <td style="padding:24px; color:#111827;">
+        <p style="font-size:14px; margin:0 0 12px;">
+          Hello,
+        </p>
+
+        <p style="font-size:14px; margin:0 0 16px;">
+          Use the following one-time password (OTP) to complete your
+          <strong>${purpose}</strong> verification:
+        </p>
+
+        <div
+          style="
+            background:#f9fafb;
+            border:1px dashed #d1d5db;
+            padding:14px;
+            text-align:center;
+            margin-bottom:16px;
+          "
+        >
+          <span
+            style="
+              font-size:22px;
+              font-weight:700;
+              letter-spacing:3px;
+              color:#0f172a;
+            "
+          >
+            ${otp}
+          </span>
+        </div>
+
+        <p style="font-size:13px; color:#374151; margin:0;">
+          This OTP will expire in
+          <strong>${OTP_EXPIRE_MINUTES} minutes</strong>.
+          Please do not share it with anyone.
+        </p>
+      </td>
+    </tr>
+
+    <!-- FOOTER -->
+    <tr>
+      <td
+        style="
+          background:#f9fafb;
+          padding:16px;
+          text-align:center;
+          border-top:1px solid #e5e7eb;
+        "
+      >
+        <p style="font-size:12px; color:#6b7280; margin:0;">
+          Need help?
+          <a
+            href="mailto:support@myazstore.shop"
+            style="color:#2563eb; text-decoration:none;"
+          >
+            support@myazstore.shop
+          </a>
+        </p>
+
+        <p style="font-size:11px; color:#9ca3af; margin:6px 0 0;">
+          © ${new Date().getFullYear()} MyAZ Store. All rights reserved.
+        </p>
+      </td>
+    </tr>
+  </table>
+</div>
+
     `;
 
     await sendEmail({

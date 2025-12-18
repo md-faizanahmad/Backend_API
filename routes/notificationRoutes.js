@@ -3,11 +3,20 @@ import {
   listNotifications,
   markNotificationsRead,
 } from "../controllers/notificationController.js";
-import { verifyUserCookie } from "../middlewares/verifyUser.js";
+import { verifyAdminCookie } from "../middlewares/verifyAdmin.js";
 
 const router = express.Router();
 
-router.get("/", verifyUserCookie, listNotifications);
-router.post("/mark-read", verifyUserCookie, markNotificationsRead);
+// router.get("/", verifyAdminCookie, listNotifications);
+// router.post("/mark-read", verifyAdminCookie, markNotificationsRead);
+
+router.get("/", verifyAdminCookie, async (req, res) => {
+  req.isAdmin = true;
+  return listNotifications(req, res);
+});
+router.get("/mark-read", verifyAdminCookie, async (req, res) => {
+  req.isAdmin = true;
+  return markNotificationsRead(req, res);
+});
 
 export default router;

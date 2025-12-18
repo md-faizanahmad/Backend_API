@@ -1,0 +1,2225 @@
+// import Product from "../models/Product.js";
+// import Category from "../models/Category.js";
+// import cloudinary from "../config/cloudinary.js";
+
+// /* ============================================================
+//    CLOUDINARY UPLOAD (BUFFER)
+// ============================================================ */
+// async function uploadToCloudinary(buffer) {
+//   return new Promise((resolve, reject) => {
+//     const stream = cloudinary.uploader.upload_stream(
+//       {
+//         folder: "MyStore/products",
+//         resource_type: "image",
+//       },
+//       (error, result) => {
+//         if (error) reject(error);
+//         else resolve(result);
+//       }
+//     );
+//     stream.end(buffer);
+//   });
+// }
+
+// /* ============================================================
+//    SEARCH PRODUCTS
+// ============================================================ */
+// export async function searchProducts(req, res) {
+//   try {
+//     const { q, limit = 50 } = req.query;
+
+//     if (!q || q.trim().length < 2) {
+//       return res.json({ success: true, products: [] });
+//     }
+
+//     const searchTerm = q.trim();
+
+//     const products = await Product.find({
+//       $or: [
+//         { name: { $regex: searchTerm, $options: "i" } },
+//         { description: { $regex: searchTerm, $options: "i" } },
+//       ],
+//       stock: { $gt: 0 },
+//       isArchived: { $ne: true },
+//     })
+//       .select("name price imageUrl category description")
+//       .populate("category", "name")
+//       .limit(parseInt(limit))
+//       .sort({ createdAt: -1 })
+//       .lean();
+
+//     return res.json({ success: true, products });
+//   } catch (err) {
+//     return res.status(500).json({
+//       success: false,
+//       message: "Search failed",
+//       error: err.message,
+//     });
+//   }
+// }
+
+// /* ============================================================
+//    CREATE PRODUCT (supports costPrice)
+// ============================================================ */
+// export const addProduct = async (req, res) => {
+//   try {
+//     const {
+//       name,
+//       description = "",
+//       price,
+//       discountPrice = 0,
+//       offers = "[]",
+//       stock,
+//       category,
+//       highlights: highlightsJson = "[]",
+//       specifications: specsJson = "{}",
+//       imageUrl: providedImageUrl,
+//     } = req.body;
+
+//     /* ------------------------------
+//        REQUIRED VALIDATION
+//     ------------------------------ */
+//     if (!name?.trim() || !price || !stock || !category) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Name, price, stock and category are required",
+//       });
+//     }
+
+//     if (Number(price) <= 0)
+//       return res.status(400).json({
+//         success: false,
+//         message: "Price must be greater than 0",
+//       });
+
+//     if (Number(discountPrice) < 0)
+//       return res.status(400).json({
+//         success: false,
+//         message: "Discount price cannot be negative",
+//       });
+
+//     if (Number(discountPrice) >= Number(price))
+//       return res.status(400).json({
+//         success: false,
+//         message: "Discount must be lower than price",
+//       });
+
+//     if (Number(stock) < 0)
+//       return res.status(400).json({
+//         success: false,
+//         message: "Stock cannot be negative",
+//       });
+
+//     const cat = await Category.findById(category);
+//     if (!cat)
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid category",
+//       });
+
+//     /* ------------------------------
+//        costPrice (NEW)
+//     ------------------------------ */
+//     let costPrice = undefined;
+//     if (req.body.costPrice !== undefined && req.body.costPrice !== "") {
+//       const cp = Number(req.body.costPrice);
+//       if (isNaN(cp) || cp < 0) {
+//         return res.status(400).json({
+//           success: false,
+//           message: "Invalid cost price",
+//         });
+//       }
+//       costPrice = cp;
+//     }
+//     // If undefined → model default uses price automatically
+
+//     /* ------------------------------
+//        PARSE JSON FIELDS
+//     ------------------------------ */
+//     let highlights = [];
+//     try {
+//       const h = JSON.parse(highlightsJson);
+//       if (Array.isArray(h)) highlights = h.filter(Boolean);
+//     } catch {}
+
+//     let specifications = {};
+//     try {
+//       const s = JSON.parse(specsJson);
+//       if (s && typeof s === "object") specifications = s;
+//     } catch {}
+
+//     let offersArray = [];
+//     try {
+//       const o = JSON.parse(offers);
+//       if (Array.isArray(o)) offersArray = o.filter(Boolean);
+//     } catch {}
+
+//     /* ------------------------------
+//        UNIQUE SLUG
+//     ------------------------------ */
+//     const baseSlug = name
+//       .trim()
+//       .toLowerCase()
+//       .replace(/\s+/g, "-")
+//       .replace(/[^\w-]/g, "");
+
+//     const slug = `${baseSlug}-${Date.now()}`;
+
+//     /* ------------------------------
+//        IMAGE HANDLING
+//     ------------------------------ */
+//     let images = [];
+//     let imageUrl = null;
+
+//     if (req.files && req.files.length > 0) {
+//       for (const f of req.files) {
+//         const result = await uploadToCloudinary(f.buffer);
+//         images.push(result.secure_url);
+//       }
+//       imageUrl = images[0];
+//     } else if (providedImageUrl) {
+//       imageUrl = providedImageUrl;
+//       images = [providedImageUrl];
+//     } else {
+//       imageUrl = "https://via.placeholder.com/600x600.png?text=No+Image";
+//       images = [imageUrl];
+//     }
+
+//     /* ------------------------------
+//        CREATE PRODUCT
+//     ------------------------------ */
+//     const product = await Product.create({
+//       name: name.trim(),
+//       slug,
+//       description: description.trim(),
+//       price: Number(price),
+//       discountPrice: Number(discountPrice),
+
+//       // NEW
+//       costPrice: costPrice !== undefined ? costPrice : undefined,
+
+//       offers: offersArray,
+//       stock: Number(stock),
+//       category,
+//       highlights,
+//       specifications,
+//       imageUrl,
+//       images,
+//     });
+
+//     const populated = await Product.findById(product._id).populate(
+//       "category",
+//       "name slug"
+//     );
+
+//     res.status(201).json({
+//       success: true,
+//       message: "Product created successfully",
+//       product: populated,
+//     });
+//   } catch (error) {
+//     console.error("🔥 ADD PRODUCT ERROR:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Server error: " + error.message,
+//     });
+//   }
+// };
+
+// /* ============================================================
+//    UPDATE PRODUCT (supports costPrice)
+// ============================================================ */
+// export const updateProduct = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+
+//     const product = await Product.findById(id);
+//     if (!product)
+//       return res.status(404).json({
+//         success: false,
+//         message: "Product not found",
+//       });
+
+//     const {
+//       name,
+//       description,
+//       price,
+//       discountPrice,
+//       offers,
+//       stock,
+//       category,
+//       highlights: highlightsJson,
+//       specifications: specsJson,
+//       imageUrl: providedImageUrl,
+//     } = req.body;
+
+//     /* ------------------------------
+//        VALIDATION
+//     ------------------------------ */
+//     if (price !== undefined && Number(price) <= 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Price must be greater than 0",
+//       });
+//     }
+
+//     if (discountPrice !== undefined && Number(discountPrice) < 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Discount price invalid",
+//       });
+//     }
+
+//     if (
+//       price !== undefined &&
+//       discountPrice !== undefined &&
+//       Number(discountPrice) >= Number(price)
+//     ) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Discount cannot be >= price",
+//       });
+//     }
+
+//     if (stock !== undefined && Number(stock) < 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Stock cannot be negative",
+//       });
+//     }
+
+//     /* ------------------------------
+//        NEW: costPrice update
+//     ------------------------------ */
+//     if (req.body.costPrice !== undefined) {
+//       const cp = Number(req.body.costPrice);
+//       if (isNaN(cp) || cp < 0) {
+//         return res.status(400).json({
+//           success: false,
+//           message: "Invalid cost price",
+//         });
+//       }
+//       product.costPrice = cp;
+//     }
+
+//     /* ------------------------------
+//        PARSE JSON
+//     ------------------------------ */
+//     if (highlightsJson) {
+//       try {
+//         const parsed = JSON.parse(highlightsJson);
+//         if (Array.isArray(parsed)) product.highlights = parsed;
+//       } catch {}
+//     }
+
+//     if (specsJson) {
+//       try {
+//         const parsed = JSON.parse(specsJson);
+//         if (parsed && typeof parsed === "object") {
+//           product.specifications = parsed;
+//         }
+//       } catch {}
+//     }
+
+//     if (offers !== undefined) {
+//       try {
+//         const parsed = JSON.parse(offers);
+//         if (Array.isArray(parsed)) product.offers = parsed.filter(Boolean);
+//       } catch {}
+//     }
+
+//     /* ------------------------------
+//        BASIC UPDATES
+//     ------------------------------ */
+//     if (name) product.name = name.trim();
+//     if (description !== undefined) product.description = description.trim();
+//     if (price !== undefined) product.price = Number(price);
+//     if (discountPrice !== undefined)
+//       product.discountPrice = Number(discountPrice);
+//     if (stock !== undefined) product.stock = Number(stock);
+
+//     if (category) {
+//       const cat = await Category.findById(category);
+//       if (!cat)
+//         return res.status(400).json({
+//           success: false,
+//           message: "Invalid category",
+//         });
+//       product.category = category;
+//     }
+
+//     /* ------------------------------
+//        IMAGE HANDLING
+//     ------------------------------ */
+//     if (req.files && req.files.length > 0) {
+//       const uploaded = [];
+//       for (const file of req.files) {
+//         const result = await uploadToCloudinary(file.buffer);
+//         uploaded.push(result.secure_url);
+//       }
+//       product.images = uploaded;
+//       product.imageUrl = uploaded[0];
+//     } else if (providedImageUrl) {
+//       product.images = [providedImageUrl];
+//       product.imageUrl = providedImageUrl;
+//     }
+
+//     await product.save();
+
+//     const populated = await Product.findById(id).populate(
+//       "category",
+//       "name slug"
+//     );
+
+//     res.json({
+//       success: true,
+//       message: "Product updated successfully",
+//       product: populated,
+//     });
+//   } catch (error) {
+//     return res.status(500).json({
+//       success: false,
+//       message: "Failed to update product: " + error.message,
+//     });
+//   }
+// };
+
+// /* ============================================================
+//    GET ALL PRODUCTS
+// ============================================================ */
+// export const getProducts = async (req, res) => {
+//   try {
+//     const filter = { isArchived: { $ne: true } };
+
+//     if (req.query.category) filter.category = req.query.category;
+
+//     if (req.query.q) {
+//       const regex = { $regex: req.query.q, $options: "i" };
+//       filter.$or = [{ name: regex }, { description: regex }];
+//     }
+
+//     const products = await Product.find(filter)
+//       .populate("category", "name slug")
+//       .sort({ createdAt: -1 })
+//       .lean();
+
+//     res.json({ success: true, products });
+//   } catch (error) {
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
+// /* ============================================================
+//    GET SINGLE PRODUCT
+// ============================================================ */
+// export const getProductById = async (req, res) => {
+//   try {
+//     // const product = await Product.findById(req.params.id).populate(
+//     //   "category",
+//     //   "name slug"
+//     // );
+
+//     // 🟦 SOFT DELETE FILTER
+//     const product = await Product.findOne({
+//       _id: req.params.id,
+//       isArchived: { $ne: true },
+//     }).populate("category", "name slug");
+
+//     if (!product)
+//       return res.status(404).json({
+//         success: false,
+//         message: "Product not found",
+//       });
+
+//     res.json({ success: true, product });
+//   } catch (error) {
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
+// /* ============================================================
+//    GET PRODUCTS BY CATEGORY SLUG
+// ============================================================ */
+// export const getProductsByCategorySlug = async (req, res) => {
+//   try {
+//     const category = await Category.findOne({ slug: req.params.slug });
+//     if (!category)
+//       return res.status(404).json({
+//         success: false,
+//         message: "Category not found",
+//       });
+
+//     const products = await Product.find({
+//       category: category._id,
+//       isArchived: { $ne: true },
+//     }).populate("category", "name slug");
+
+//     res.json({ success: true, products });
+//   } catch (error) {
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
+// /* ============================================================
+//    GET PRODUCT BY SLUG
+// ============================================================ */
+// export const getProductBySlug = async (req, res) => {
+//   try {
+//     const product = await Product.findOne({
+//       slug: req.params.slug,
+//       isArchived: { $ne: true },
+//     }).populate("category", "name slug");
+
+//     if (!product)
+//       return res.status(404).json({
+//         success: false,
+//         message: "Product not found",
+//       });
+
+//     res.json({ success: true, product });
+//   } catch (error) {
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
+// /* ============================================================
+//    DELETE PRODUCT → NOW SOFT DELETE
+// ============================================================ */
+// export const deleteProduct = async (req, res) => {
+//   try {
+//     // 🟦 SOFT DELETE CHANGE — mark deleted instead of remove
+//     const product = await Product.findById(req.params.id);
+
+//     if (!product) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Product not found",
+//       });
+//     }
+
+//     product.isArchived = true;
+//     product.archivedAt = new Date();
+
+//     await product.save();
+
+//     return res.json({ success: true, message: "Product soft-deleted" });
+//   } catch (error) {
+//     return res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
+// /* ============================================================
+//    RESTORE PRODUCT (NEW)
+// ============================================================ */
+// export const restoreProduct = async (req, res) => {
+//   try {
+//     const product = await Product.findById(req.params.id);
+
+//     if (!product) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Product not found",
+//       });
+//     }
+
+//     if (!product.isArchived) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Product is not deleted",
+//       });
+//     }
+
+//     // 🟩 RESTORE CHANGE
+//     product.isArchived = false;
+//     product.archivedAt = null;
+
+//     await product.save();
+
+//     return res.json({
+//       success: true,
+//       message: "Product restored successfully",
+//       product,
+//     });
+//   } catch (error) {
+//     return res.status(500).json({
+//       success: false,
+//       message: "Failed to restore product",
+//       error: error.message,
+//     });
+//   }
+// };
+
+// /* ============================================================
+//    ADD REVIEW
+// ============================================================ */
+// export const addReview = async (req, res) => {
+//   try {
+//     const { rating, comment } = req.body;
+//     const userId = req.user?.id;
+
+//     const product = await Product.findById(req.params.id);
+//     if (!product)
+//       return res.status(404).json({
+//         success: false,
+//         message: "Product not found",
+//       });
+
+//     if (!userId)
+//       return res.status(401).json({
+//         success: false,
+//         message: "Login required",
+//       });
+
+//     if (rating < 1 || rating > 5) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Rating must be 1–5",
+//       });
+//     }
+
+//     const already = product.reviews.find((r) => r.user.toString() === userId);
+
+//     if (already) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Already reviewed",
+//       });
+//     }
+
+//     product.reviews.push({
+//       user: userId,
+//       name: req.user.name,
+//       rating: Number(rating),
+//       comment,
+//     });
+
+//     await product.save();
+
+//     const updated = await Product.findById(req.params.id).populate(
+//       "reviews.user",
+//       "name"
+//     );
+
+//     res.status(201).json({
+//       success: true,
+//       message: "Review added",
+//       reviews: updated.reviews,
+//       rating: updated.rating,
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       message: "Failed to add review",
+//     });
+//   }
+// };
+
+//////////////////// Updated with Optiz and Sorting Backend
+// controllers/productController.js
+import Product from "../models/Product.js";
+import Category from "../models/Category.js";
+import Order from "../models/Order.js";
+
+/* ============================================================
+   CLOUDINARY UPLOAD (BUFFER) - keep your working function exactly
+   - uploads original full-quality master to Cloudinary
+   - we will apply auto-quality/format on returned URLs (delivery-time)
+============================================================ */
+// async function uploadToCloudinary(buffer) {
+//   return new Promise((resolve, reject) => {
+//     const stream = cloudinary.uploader.upload_stream(
+//       {
+//         folder: "MyStore/products",
+//         resource_type: "image",
+//       },
+//       (error, result) => {
+//         if (error) reject(error);
+//         else resolve(result);
+//       }
+//     );
+//     stream.end(buffer);
+//   });
+// }
+
+/* ============================================================
+   HELPER: Inject Cloudinary delivery transforms (auto quality/format)
+   - Keeps original stored image untouched; only changes delivery URL.
+   - transform used: f_auto,q_auto,w_auto
+============================================================ */
+// function cloudinaryOptimizeUrl(url) {
+//   try {
+//     if (!url || typeof url !== "string") return url;
+//     const token = "/upload/";
+//     const idx = url.indexOf(token);
+//     if (idx === -1) return url;
+//     const prefix = url.slice(0, idx + token.length);
+//     const rest = url.slice(idx + token.length);
+//     const transform = "f_auto,q_auto,w_auto/";
+//     return `${prefix}${transform}${rest}`;
+//   } catch {
+//     return url;
+//   }
+// }
+
+export const getProductsByCategory = async (req, res) => {
+  try {
+    const categoryId = req.params.id;
+
+    const category = await Category.findById(categoryId);
+    if (!category) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Category not found" });
+    }
+
+    let categoryIds = [categoryId];
+
+    // If main category → include all subcategories
+    if (!category.isSub) {
+      const subcats = await Category.find({ parent: categoryId }).select("_id");
+      categoryIds.push(...subcats.map((c) => c._id.toString()));
+    }
+
+    const products = await Product.find({
+      category: { $in: categoryIds },
+      isArchived: { $ne: true },
+    })
+      .select("name slug price discountPrice imageUrl stock rating category")
+      .populate("category", "name slug")
+      .sort({ createdAt: -1 });
+
+    return res.json({ success: true, products });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/* ============================================================
+   SEARCH PRODUCTS
+   - NO cache (search is query specific)
+   - Lightweight projection (no reviews, no heavy specs)
+   - Uses regex fallback; if you add a text index you can prefer text search
+============================================================ */
+export async function searchProducts(req, res) {
+  try {
+    // search must always be fresh
+    res.set("Cache-Control", "no-store");
+
+    const qRaw = String(req.query.q || "").trim();
+    const limit = Math.min(Number(req.query.limit) || 50, 100);
+
+    if (qRaw.length < 2) {
+      return res.json({ success: true, products: [] });
+    }
+
+    const q = qRaw;
+    const isAdmin = req.query.admin === "true";
+
+    const baseFilter = isAdmin ? {} : { isArchived: { $ne: true } };
+
+    const regex = { $regex: q, $options: "i" };
+
+    const filter = {
+      ...baseFilter,
+      $or: [{ name: regex }, { description: regex }],
+    };
+
+    const products = await Product.find(filter)
+      .select(
+        "name slug price discountPrice imageUrl category rating.average rating.count stock offers"
+      )
+      .populate("category", "name slug")
+      .limit(limit)
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const cleaned = products.map((p) => ({
+      ...p,
+      imageUrl: cloudinaryOptimizeUrl(p.imageUrl),
+      images: (p.images || []).map(cloudinaryOptimizeUrl),
+    }));
+
+    return res.json({ success: true, products: cleaned });
+  } catch (err) {
+    console.error("SEARCH ERROR:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Search failed",
+      error: err.message,
+    });
+  }
+}
+
+/* -----------------------------------------------------------*/
+/////// AddProduct and Update Product both update with cloudinary public_id
+// NOTE: Make sure these are imported in this file:
+// import Product from "../models/Product.js";
+// import Category from "../models/Category.js";
+// (uploadToCloudinary, cloudinaryOptimizeUrl) should also be available
+
+/* ------------------ addProduct ------------------ */
+/// 02-12
+// controllers/productController.js
+// import Product from "../models/Product.js"; // adjust imports
+// import Category from "../models/Category.js";
+// import uploadToCloudinary from "../utils/uploadToCloudinary.js";
+// import cloudinaryOptimizeUrl from "../utils/cloudinaryOptimizeUrl.js";
+
+// Helper to normalize incoming files from multer
+function getIncomingFiles(req) {
+  if (!req.files) return [];
+  // multer.array('images') -> req.files is an array
+  if (Array.isArray(req.files)) return req.files;
+  // multer.fields(...) -> req.files is an object keyed by fieldname
+  // try common keys
+  const keys = ["images", "images[]", "files", "file"];
+  for (const k of keys) {
+    if (req.files[k]) return req.files[k];
+  }
+  // otherwise, flatten any arrays present
+  const flattened = Object.values(req.files).filter(Boolean).flat();
+  return Array.isArray(flattened) ? flattened : [];
+}
+
+// Helper to convert Cloudinary result -> { url, publicId }
+function normalizeCloudinaryResult(result) {
+  if (!result) return null;
+  if (typeof result === "string") {
+    // legacy string URL
+    return { url: result, publicId: null };
+  }
+  // expect object
+  const url = result.secure_url || result.secureUrl || result.url || null;
+  const publicId = result.public_id || result.publicId || null;
+  if (!url) return null;
+  return { url, publicId };
+}
+
+/* ---------------- ADD PRODUCT ---------------- */
+export const addProduct = async (req, res) => {
+  try {
+    const {
+      name,
+      description = "",
+      price,
+      discountPrice = 0,
+      offers = "[]",
+      stock,
+      category,
+      highlights: highlightsJson = "[]",
+      specifications: specsJson = "{}",
+      imageUrl: providedImageUrl,
+    } = req.body;
+
+    // Required validation
+    if (
+      !name?.trim() ||
+      price === undefined ||
+      stock === undefined ||
+      !category
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Name, price, stock and category are required",
+      });
+    }
+
+    if (Number(price) <= 0)
+      return res
+        .status(400)
+        .json({ success: false, message: "Price must be > 0" });
+
+    if (Number(discountPrice) < 0)
+      return res
+        .status(400)
+        .json({ success: false, message: "Discount price cannot be negative" });
+
+    if (Number(discountPrice) >= Number(price))
+      return res
+        .status(400)
+        .json({ success: false, message: "Discount must be lower than price" });
+
+    if (Number(stock) < 0)
+      return res
+        .status(400)
+        .json({ success: false, message: "Stock cannot be negative" });
+
+    // Validate category exists and not soft-deleted
+    const cat = await Category.findById(category).lean();
+    if (!cat || cat.isDeleted) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid or deleted category" });
+    }
+
+    // costPrice optional
+    let costPrice = undefined;
+    if (req.body.costPrice !== undefined && req.body.costPrice !== "") {
+      const cp = Number(req.body.costPrice);
+      if (isNaN(cp) || cp < 0) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid cost price" });
+      }
+      costPrice = cp;
+    }
+
+    // Parse JSON inputs safely
+    let highlights = [];
+    try {
+      const h = JSON.parse(highlightsJson);
+      if (Array.isArray(h)) highlights = h.filter(Boolean);
+    } catch {}
+
+    let specifications = {};
+    try {
+      const s = JSON.parse(specsJson);
+      if (s && typeof s === "object") specifications = s;
+    } catch {}
+
+    let offersArray = [];
+    try {
+      const o = JSON.parse(offers);
+      if (Array.isArray(o)) offersArray = o.filter(Boolean);
+    } catch {}
+
+    // Unique slug
+    const baseSlug = name
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^\w-]/g, "");
+    const slug = `${baseSlug}-${Date.now()}`;
+
+    /* ---------------- IMAGE handling ---------------- */
+    const incomingFiles = getIncomingFiles(req);
+    console.log("ADD PRODUCT - incomingFiles count:", incomingFiles.length);
+    console.log(
+      "ADD PRODUCT - req.files keys:",
+      req.files ? Object.keys(req.files) : "no req.files"
+    );
+    console.log("ADD PRODUCT - req.body keys:", Object.keys(req.body || {}));
+
+    const images = [];
+    let imageUrl = null;
+
+    if (incomingFiles && incomingFiles.length > 0) {
+      for (const f of incomingFiles) {
+        try {
+          const result = await uploadToCloudinary(f.buffer);
+          const normalized = normalizeCloudinaryResult(result);
+          if (!normalized) continue;
+          images.push({ url: normalized.url, publicId: normalized.publicId });
+        } catch (err) {
+          console.error("ADD PRODUCT - uploadToCloudinary error:", err);
+          // continue with next file
+        }
+      }
+      imageUrl = images.length > 0 ? images[0].url : null;
+    } else if (providedImageUrl) {
+      const publicId = null; // you can try to extract publicId if you want
+      imageUrl = providedImageUrl;
+      images.push({ url: providedImageUrl, publicId });
+    } else {
+      imageUrl = "https://via.placeholder.com/600x600.png?text=No+Image";
+      images.push({ url: imageUrl, publicId: null });
+    }
+
+    // Create product (store images as objects)
+    const product = await Product.create({
+      name: name.trim(),
+      slug,
+      description: description.trim(),
+      price: Number(price),
+      discountPrice: Number(discountPrice),
+      costPrice: costPrice !== undefined ? costPrice : undefined,
+      offers: offersArray,
+      stock: Number(stock),
+      category,
+      highlights,
+      specifications,
+      imageUrl,
+      images, // array of { url, publicId }
+    });
+
+    // Populate for response
+    const populated = await Product.findById(product._id)
+      .populate("category", "name slug")
+      .lean();
+
+    if (populated) {
+      populated.imageUrl = cloudinaryOptimizeUrl(populated.imageUrl);
+      populated.images = (populated.images || []).map((img) => ({
+        url: cloudinaryOptimizeUrl(img.url),
+        publicId: img.publicId || null,
+      }));
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "Product created successfully",
+      product: populated,
+    });
+  } catch (error) {
+    console.error("ADD PRODUCT ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message:
+        "Server error: " +
+        (error && error.message ? error.message : String(error)),
+    });
+  }
+};
+
+/* ------------------ updateProduct ------------------ */
+export const updateProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const product = await Product.findById(id);
+    if (!product)
+      return res
+        .status(404)
+        .json({ success: false, message: "Product not found" });
+
+    const {
+      name,
+      description,
+      price,
+      discountPrice,
+      offers,
+      stock,
+      category,
+      highlights: highlightsJson,
+      specifications: specsJson,
+      imageUrl: providedImageUrl,
+    } = req.body;
+
+    // Validation
+    if (price !== undefined && Number(price) <= 0) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Price must be greater than 0" });
+    }
+    if (discountPrice !== undefined && Number(discountPrice) < 0) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Discount price invalid" });
+    }
+    if (
+      price !== undefined &&
+      discountPrice !== undefined &&
+      Number(discountPrice) >= Number(price)
+    ) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Discount cannot be >= price" });
+    }
+    if (stock !== undefined && Number(stock) < 0) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Stock cannot be negative" });
+    }
+
+    // costPrice update if present
+    if (req.body.costPrice !== undefined) {
+      const cp = Number(req.body.costPrice);
+      if (isNaN(cp) || cp < 0) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid cost price" });
+      }
+      product.costPrice = cp;
+    }
+
+    // Parse JSON fields
+    if (highlightsJson) {
+      try {
+        const parsed = JSON.parse(highlightsJson);
+        if (Array.isArray(parsed)) product.highlights = parsed;
+      } catch {}
+    }
+    if (specsJson) {
+      try {
+        const parsed = JSON.parse(specsJson);
+        if (parsed && typeof parsed === "object")
+          product.specifications = parsed;
+      } catch {}
+    }
+    if (offers !== undefined) {
+      try {
+        const parsed = JSON.parse(offers);
+        if (Array.isArray(parsed)) product.offers = parsed.filter(Boolean);
+      } catch {}
+    }
+
+    // Basic updates
+    if (name) product.name = name.trim();
+    if (description !== undefined) product.description = description.trim();
+    if (price !== undefined) product.price = Number(price);
+    if (discountPrice !== undefined)
+      product.discountPrice = Number(discountPrice);
+    if (stock !== undefined) product.stock = Number(stock);
+
+    // Category validation
+    if (category) {
+      const cat = await Category.findById(category).lean();
+      if (!cat || cat.isDeleted) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid or deleted category" });
+      }
+      product.category = category;
+    }
+
+    // Image handling: normalize incoming files
+    const incomingFiles = getIncomingFiles(req);
+    console.log("UPDATE PRODUCT - incomingFiles count:", incomingFiles.length);
+    console.log(
+      "UPDATE PRODUCT - req.files keys:",
+      req.files ? Object.keys(req.files) : "no req.files"
+    );
+    console.log("UPDATE PRODUCT - req.body keys:", Object.keys(req.body || {}));
+
+    if (incomingFiles && incomingFiles.length > 0) {
+      const uploaded = [];
+      for (const file of incomingFiles) {
+        try {
+          const result = await uploadToCloudinary(file.buffer);
+          const normalized = normalizeCloudinaryResult(result);
+          if (!normalized) continue;
+          uploaded.push({ url: normalized.url, publicId: normalized.publicId });
+        } catch (err) {
+          console.error("UPDATE PRODUCT - uploadToCloudinary error:", err);
+        }
+      }
+
+      if (uploaded.length > 0) {
+        product.images = uploaded;
+        product.imageUrl = uploaded[0].url;
+      }
+    } else if (providedImageUrl) {
+      const publicId = null; // optionally extract
+      product.images = [{ url: providedImageUrl, publicId }];
+      product.imageUrl = providedImageUrl;
+    }
+
+    // Save updates
+    await product.save();
+
+    // Response: populated + optimized urls but keep publicId
+    const populated = await Product.findById(id)
+      .populate("category", "name slug")
+      .lean();
+
+    if (populated) {
+      populated.imageUrl = cloudinaryOptimizeUrl(populated.imageUrl);
+      populated.images = (populated.images || []).map((img) => ({
+        url: cloudinaryOptimizeUrl(img.url),
+        publicId: img.publicId || null,
+      }));
+    }
+
+    res.json({
+      success: true,
+      message: "Product updated successfully",
+      product: populated,
+    });
+  } catch (error) {
+    console.error("UPDATE PRODUCT ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message:
+        "Failed to update product: " +
+        (error && error.message ? error.message : String(error)),
+    });
+  }
+};
+
+// export const addProduct = async (req, res) => {
+//   try {
+//     const {
+//       name,
+//       description = "",
+//       price,
+//       discountPrice = 0,
+//       offers = "[]",
+//       stock,
+//       category,
+//       highlights: highlightsJson = "[]",
+//       specifications: specsJson = "{}",
+//       imageUrl: providedImageUrl,
+//     } = req.body;
+
+//     // Required validation
+//     if (
+//       !name?.trim() ||
+//       price === undefined ||
+//       stock === undefined ||
+//       !category
+//     ) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Name, price, stock and category are required",
+//       });
+//     }
+
+//     if (Number(price) <= 0)
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Price must be > 0" });
+
+//     if (Number(discountPrice) < 0)
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Discount price cannot be negative" });
+
+//     if (Number(discountPrice) >= Number(price))
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Discount must be lower than price" });
+
+//     if (Number(stock) < 0)
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Stock cannot be negative" });
+
+//     // Validate category exists and not soft-deleted
+//     const cat = await Category.findById(category).lean();
+//     if (!cat || cat.isDeleted) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Invalid or deleted category" });
+//     }
+
+//     // costPrice optional
+//     let costPrice = undefined;
+//     if (req.body.costPrice !== undefined && req.body.costPrice !== "") {
+//       const cp = Number(req.body.costPrice);
+//       if (isNaN(cp) || cp < 0) {
+//         return res
+//           .status(400)
+//           .json({ success: false, message: "Invalid cost price" });
+//       }
+//       costPrice = cp;
+//     }
+
+//     // Parse JSON inputs safely
+//     let highlights = [];
+//     try {
+//       const h = JSON.parse(highlightsJson);
+//       if (Array.isArray(h)) highlights = h.filter(Boolean);
+//     } catch {}
+
+//     let specifications = {};
+//     try {
+//       const s = JSON.parse(specsJson);
+//       if (s && typeof s === "object") specifications = s;
+//     } catch {}
+
+//     let offersArray = [];
+//     try {
+//       const o = JSON.parse(offers);
+//       if (Array.isArray(o)) offersArray = o.filter(Boolean);
+//     } catch {}
+
+//     // Unique slug
+//     const baseSlug = name
+//       .trim()
+//       .toLowerCase()
+//       .replace(/\s+/g, "-")
+//       .replace(/[^\w-]/g, "");
+//     const slug = `${baseSlug}-${Date.now()}`;
+
+//     /* ---------------- IMAGE handling ----------------
+//        We will store images as objects: { url, publicId }
+//        - uploadToCloudinary should return an object { secure_url, public_id }
+//        - but handle if it returns a plain string (legacy)
+//     */
+//     let images = [];
+//     let imageUrl = null;
+
+//     if (req.files && req.files.length > 0) {
+//       // Upload every file buffer to Cloudinary and save both url + publicId
+//       for (const f of req.files) {
+//         const result = await uploadToCloudinary(f.buffer);
+//         if (!result) continue;
+
+//         if (typeof result === "string") {
+//           // legacy: function returned url only
+//           const url = result;
+//           // attempt to extract publicId from URL (fallback)
+//           const publicId =
+//             typeof Product.extractPublicIdFromUrl === "function"
+//               ? Product.extractPublicIdFromUrl(url)
+//               : extractPublicIdFromUrl(url);
+//           images.push({ url, publicId: publicId || null });
+//         } else {
+//           // expected object { secure_url, public_id } (or similar)
+//           const url = result.secure_url || result.secureUrl || result.url;
+//           const publicId = result.public_id || result.publicId || null;
+//           images.push({ url, publicId });
+//         }
+//       }
+//       imageUrl = images.length > 0 ? images[0].url : null;
+//     } else if (providedImageUrl) {
+//       // If a client provided an external or Cloudinary URL, store it and try to extract publicId
+//       const publicId =
+//         typeof Product.extractPublicIdFromUrl === "function"
+//           ? Product.extractPublicIdFromUrl(providedImageUrl)
+//           : extractPublicIdFromUrl(providedImageUrl);
+//       imageUrl = providedImageUrl;
+//       images = [{ url: providedImageUrl, publicId: publicId || null }];
+//     } else {
+//       // Placeholder image (no publicId)
+//       imageUrl = "https://via.placeholder.com/600x600.png?text=No+Image";
+//       images = [{ url: imageUrl, publicId: null }];
+//     }
+
+//     // Create product (images stored as objects)
+//     const product = await Product.create({
+//       name: name.trim(),
+//       slug,
+//       description: description.trim(),
+//       price: Number(price),
+//       discountPrice: Number(discountPrice),
+//       costPrice: costPrice !== undefined ? costPrice : undefined,
+//       offers: offersArray,
+//       stock: Number(stock),
+//       category,
+//       highlights,
+//       specifications,
+//       imageUrl,
+//       images, // <-- array of { url, publicId }
+//     });
+
+//     // Populate for response
+//     const populated = await Product.findById(product._id)
+//       .populate("category", "name slug")
+//       .lean();
+
+//     // Optimize URLs for delivery and keep publicId in response
+//     if (populated) {
+//       populated.imageUrl = cloudinaryOptimizeUrl(populated.imageUrl);
+//       populated.images = (populated.images || []).map((img) => ({
+//         url: cloudinaryOptimizeUrl(img.url),
+//         publicId: img.publicId || null,
+//       }));
+//     }
+
+//     res.status(201).json({
+//       success: true,
+//       message: "Product created successfully",
+//       product: populated,
+//     });
+//   } catch (error) {
+//     console.error("ADD PRODUCT ERROR:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Server error: " + error.message,
+//     });
+//   }
+// };
+
+// /* ------------------ updateProduct ------------------ */
+// export const updateProduct = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+
+//     const product = await Product.findById(id);
+//     if (!product)
+//       return res
+//         .status(404)
+//         .json({ success: false, message: "Product not found" });
+
+//     const {
+//       name,
+//       description,
+//       price,
+//       discountPrice,
+//       offers,
+//       stock,
+//       category,
+//       highlights: highlightsJson,
+//       specifications: specsJson,
+//       imageUrl: providedImageUrl,
+//     } = req.body;
+
+//     // Validation
+//     if (price !== undefined && Number(price) <= 0) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Price must be greater than 0" });
+//     }
+//     if (discountPrice !== undefined && Number(discountPrice) < 0) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Discount price invalid" });
+//     }
+//     if (
+//       price !== undefined &&
+//       discountPrice !== undefined &&
+//       Number(discountPrice) >= Number(price)
+//     ) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Discount cannot be >= price" });
+//     }
+//     if (stock !== undefined && Number(stock) < 0) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Stock cannot be negative" });
+//     }
+
+//     // costPrice update if present
+//     if (req.body.costPrice !== undefined) {
+//       const cp = Number(req.body.costPrice);
+//       if (isNaN(cp) || cp < 0) {
+//         return res
+//           .status(400)
+//           .json({ success: false, message: "Invalid cost price" });
+//       }
+//       product.costPrice = cp;
+//     }
+
+//     // Parse JSON fields
+//     if (highlightsJson) {
+//       try {
+//         const parsed = JSON.parse(highlightsJson);
+//         if (Array.isArray(parsed)) product.highlights = parsed;
+//       } catch {}
+//     }
+//     if (specsJson) {
+//       try {
+//         const parsed = JSON.parse(specsJson);
+//         if (parsed && typeof parsed === "object")
+//           product.specifications = parsed;
+//       } catch {}
+//     }
+//     if (offers !== undefined) {
+//       try {
+//         const parsed = JSON.parse(offers);
+//         if (Array.isArray(parsed)) product.offers = parsed.filter(Boolean);
+//       } catch {}
+//     }
+
+//     // Basic updates
+//     if (name) product.name = name.trim();
+//     if (description !== undefined) product.description = description.trim();
+//     if (price !== undefined) product.price = Number(price);
+//     if (discountPrice !== undefined)
+//       product.discountPrice = Number(discountPrice);
+//     if (stock !== undefined) product.stock = Number(stock);
+
+//     // Category validation
+//     if (category) {
+//       const cat = await Category.findById(category).lean();
+//       if (!cat || cat.isDeleted) {
+//         return res
+//           .status(400)
+//           .json({ success: false, message: "Invalid or deleted category" });
+//       }
+//       product.category = category;
+//     }
+
+//     /* ---------------- Image handling ----------------
+//        We will replace product.images only if new files or providedImageUrl present.
+//        Otherwise existing product.images (with publicId) remain untouched.
+//     */
+//     if (req.files && req.files.length > 0) {
+//       const uploaded = [];
+//       for (const file of req.files) {
+//         const result = await uploadToCloudinary(file.buffer);
+//         if (!result) continue;
+
+//         if (typeof result === "string") {
+//           const url = result;
+//           const publicId =
+//             typeof Product.extractPublicIdFromUrl === "function"
+//               ? Product.extractPublicIdFromUrl(url)
+//               : extractPublicIdFromUrl(url);
+//           uploaded.push({ url, publicId: publicId || null });
+//         } else {
+//           const url = result.secure_url || result.secureUrl || result.url;
+//           const publicId = result.public_id || result.publicId || null;
+//           uploaded.push({ url, publicId });
+//         }
+//       }
+
+//       if (uploaded.length > 0) {
+//         product.images = uploaded;
+//         product.imageUrl = uploaded[0].url;
+//       }
+//     } else if (providedImageUrl) {
+//       // Replace with provided URL (try to extract publicId)
+//       const publicId =
+//         typeof Product.extractPublicIdFromUrl === "function"
+//           ? Product.extractPublicIdFromUrl(providedImageUrl)
+//           : extractPublicIdFromUrl(providedImageUrl);
+//       product.images = [{ url: providedImageUrl, publicId: publicId || null }];
+//       product.imageUrl = providedImageUrl;
+//     }
+
+//     // Save updates
+//     await product.save();
+
+//     // Response: populated + optimized urls but keep publicId
+//     const populated = await Product.findById(id)
+//       .populate("category", "name slug")
+//       .lean();
+
+//     if (populated) {
+//       populated.imageUrl = cloudinaryOptimizeUrl(populated.imageUrl);
+//       populated.images = (populated.images || []).map((img) => ({
+//         url: cloudinaryOptimizeUrl(img.url),
+//         publicId: img.publicId || null,
+//       }));
+//     }
+
+//     res.json({
+//       success: true,
+//       message: "Product updated successfully",
+//       product: populated,
+//     });
+//   } catch (error) {
+//     console.error("UPDATE PRODUCT ERROR:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Failed to update product: " + error.message,
+//     });
+//   }
+// };
+
+// /* ---------------- Helper fallback (local) ----------------
+//    If Product.extractPublicIdFromUrl is not available, this local
+//    fallback is used. The Product model may already expose the extractor.
+// */
+// function extractPublicIdFromUrl(url) {
+//   try {
+//     if (!url || typeof url !== "string") return null;
+//     const parts = url.split("/upload/");
+//     if (parts.length < 2) return null;
+//     let after = parts[1].replace(/^v\d+\//, "").split("?")[0];
+//     const dot = after.lastIndexOf(".");
+//     return dot > -1 ? after.slice(0, dot) : after;
+//   } catch {
+//     return null;
+//   }
+// }
+
+/* ============================================================
+   CREATE PRODUCT
+   - uses your uploadToCloudinary for uploaded files (buffer)
+   - validates category and prevents adding product to deleted category
+   - sets slug unique using timestamp suffix
+// ============================================================ */
+// export const addProduct = async (req, res) => {
+//   try {
+//     const {
+//       name,
+//       description = "",
+//       price,
+//       discountPrice = 0,
+//       offers = "[]",
+//       stock,
+//       category,
+//       highlights: highlightsJson = "[]",
+//       specifications: specsJson = "{}",
+//       imageUrl: providedImageUrl,
+//     } = req.body;
+
+//     // Required validation
+//     if (
+//       !name?.trim() ||
+//       price === undefined ||
+//       stock === undefined ||
+//       !category
+//     ) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Name, price, stock and category are required",
+//       });
+//     }
+
+//     if (Number(price) <= 0)
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Price must be > 0" });
+
+//     if (Number(discountPrice) < 0)
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Discount price cannot be negative" });
+
+//     if (Number(discountPrice) >= Number(price))
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Discount must be lower than price" });
+
+//     if (Number(stock) < 0)
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Stock cannot be negative" });
+
+//     // Validate category exists and not soft-deleted
+//     const cat = await Category.findById(category).lean();
+//     if (!cat || cat.isDeleted) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Invalid or deleted category" });
+//     }
+
+//     // costPrice optional
+//     let costPrice = undefined;
+//     if (req.body.costPrice !== undefined && req.body.costPrice !== "") {
+//       const cp = Number(req.body.costPrice);
+//       if (isNaN(cp) || cp < 0) {
+//         return res
+//           .status(400)
+//           .json({ success: false, message: "Invalid cost price" });
+//       }
+//       costPrice = cp;
+//     }
+
+//     // Parse JSON inputs safely
+//     let highlights = [];
+//     try {
+//       const h = JSON.parse(highlightsJson);
+//       if (Array.isArray(h)) highlights = h.filter(Boolean);
+//     } catch {}
+
+//     let specifications = {};
+//     try {
+//       const s = JSON.parse(specsJson);
+//       if (s && typeof s === "object") specifications = s;
+//     } catch {}
+
+//     let offersArray = [];
+//     try {
+//       const o = JSON.parse(offers);
+//       if (Array.isArray(o)) offersArray = o.filter(Boolean);
+//     } catch {}
+
+//     // Unique slug
+//     const baseSlug = name
+//       .trim()
+//       .toLowerCase()
+//       .replace(/\s+/g, "-")
+//       .replace(/[^\w-]/g, "");
+//     const slug = `${baseSlug}-${Date.now()}`;
+
+//     // IMAGE handling: prefer req.files upload; else providedImageUrl; else placeholder
+//     let images = [];
+//     let imageUrl = null;
+
+//     if (req.files && req.files.length > 0) {
+//       for (const f of req.files) {
+//         const result = await uploadToCloudinary(f.buffer);
+//         images.push(result.secure_url);
+//       }
+//       imageUrl = images[0];
+//     } else if (providedImageUrl) {
+//       imageUrl = providedImageUrl;
+//       images = [providedImageUrl];
+//     } else {
+//       imageUrl = "https://via.placeholder.com/600x600.png?text=No+Image";
+//       images = [imageUrl];
+//     }
+
+//     const product = await Product.create({
+//       name: name.trim(),
+//       slug,
+//       description: description.trim(),
+//       price: Number(price),
+//       discountPrice: Number(discountPrice),
+//       costPrice: costPrice !== undefined ? costPrice : undefined,
+//       offers: offersArray,
+//       stock: Number(stock),
+//       category,
+//       highlights,
+//       specifications,
+//       imageUrl,
+//       images,
+//     });
+
+//     const populated = await Product.findById(product._id)
+//       .populate("category", "name slug")
+//       .lean();
+
+//     // Transform image URLs for delivery (auto quality/format)
+//     if (populated) {
+//       populated.imageUrl = cloudinaryOptimizeUrl(populated.imageUrl);
+//       populated.images = (populated.images || []).map(cloudinaryOptimizeUrl);
+//     }
+
+//     res.status(201).json({
+//       success: true,
+//       message: "Product created successfully",
+//       product: populated,
+//     });
+//   } catch (error) {
+//     console.error("ADD PRODUCT ERROR:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Server error: " + error.message,
+//     });
+//   }
+// };
+
+/* ============================================================
+   UPDATE PRODUCT
+   - supports image upload via uploadToCloudinary
+   - supports JSON parsing for highlights/specs/offers
+   - validates category and uses lean population for response
+============================================================ */
+// export const updateProduct = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+
+//     const product = await Product.findById(id);
+//     if (!product)
+//       return res
+//         .status(404)
+//         .json({ success: false, message: "Product not found" });
+
+//     const {
+//       name,
+//       description,
+//       price,
+//       discountPrice,
+//       offers,
+//       stock,
+//       category,
+//       highlights: highlightsJson,
+//       specifications: specsJson,
+//       imageUrl: providedImageUrl,
+//     } = req.body;
+
+//     // Validation
+//     if (price !== undefined && Number(price) <= 0) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Price must be greater than 0" });
+//     }
+//     if (discountPrice !== undefined && Number(discountPrice) < 0) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Discount price invalid" });
+//     }
+//     if (
+//       price !== undefined &&
+//       discountPrice !== undefined &&
+//       Number(discountPrice) >= Number(price)
+//     ) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Discount cannot be >= price" });
+//     }
+//     if (stock !== undefined && Number(stock) < 0) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Stock cannot be negative" });
+//     }
+
+//     // costPrice update if present
+//     if (req.body.costPrice !== undefined) {
+//       const cp = Number(req.body.costPrice);
+//       if (isNaN(cp) || cp < 0) {
+//         return res
+//           .status(400)
+//           .json({ success: false, message: "Invalid cost price" });
+//       }
+//       product.costPrice = cp;
+//     }
+
+//     // Parse JSON fields
+//     if (highlightsJson) {
+//       try {
+//         const parsed = JSON.parse(highlightsJson);
+//         if (Array.isArray(parsed)) product.highlights = parsed;
+//       } catch {}
+//     }
+//     if (specsJson) {
+//       try {
+//         const parsed = JSON.parse(specsJson);
+//         if (parsed && typeof parsed === "object")
+//           product.specifications = parsed;
+//       } catch {}
+//     }
+//     if (offers !== undefined) {
+//       try {
+//         const parsed = JSON.parse(offers);
+//         if (Array.isArray(parsed)) product.offers = parsed.filter(Boolean);
+//       } catch {}
+//     }
+
+//     // Basic updates
+//     if (name) product.name = name.trim();
+//     if (description !== undefined) product.description = description.trim();
+//     if (price !== undefined) product.price = Number(price);
+//     if (discountPrice !== undefined)
+//       product.discountPrice = Number(discountPrice);
+//     if (stock !== undefined) product.stock = Number(stock);
+
+//     // Category validation
+//     if (category) {
+//       const cat = await Category.findById(category).lean();
+//       if (!cat || cat.isDeleted) {
+//         return res
+//           .status(400)
+//           .json({ success: false, message: "Invalid or deleted category" });
+//       }
+//       product.category = category;
+//     }
+
+//     // Image handling
+//     if (req.files && req.files.length > 0) {
+//       const uploaded = [];
+//       for (const file of req.files) {
+//         const result = await uploadToCloudinary(file.buffer);
+//         uploaded.push(result.secure_url);
+//       }
+//       product.images = uploaded;
+//       product.imageUrl = uploaded[0];
+//     } else if (providedImageUrl) {
+//       product.images = [providedImageUrl];
+//       product.imageUrl = providedImageUrl;
+//     }
+
+//     await product.save();
+
+//     const populated = await Product.findById(id)
+//       .populate("category", "name slug")
+//       .lean();
+//     if (populated) {
+//       populated.imageUrl = cloudinaryOptimizeUrl(populated.imageUrl);
+//       populated.images = (populated.images || []).map(cloudinaryOptimizeUrl);
+//     }
+
+//     res.json({
+//       success: true,
+//       message: "Product updated successfully",
+//       product: populated,
+//     });
+//   } catch (error) {
+//     console.error("UPDATE PRODUCT ERROR:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Failed to update product: " + error.message,
+//     });
+//   }
+// };
+
+/* ============================================================
+   GET ALL PRODUCTS (LIST)
+   - Pagination, sorting, price filter, text query, category filter
+   - Uses .select() to return only lightweight fields; .lean() for speed
+   - Cache-Control: 30 seconds
+============================================================ */
+
+export const getProducts = async (req, res) => {
+  try {
+    res.set("Cache-Control", "public, max-age=30");
+
+    // Pagination
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(Number(req.query.limit) || 20, 100);
+    const skip = (page - 1) * limit;
+
+    const isAdmin = req.query.admin === "true";
+
+    // Base filter — users cannot see archived products
+    const filter = isAdmin ? {} : { isArchived: { $ne: true } };
+
+    // Category filter
+    if (req.query.category) filter.category = req.query.category;
+
+    // Price filter
+    const min = req.query.min ? Number(req.query.min) : null;
+    const max = req.query.max ? Number(req.query.max) : null;
+
+    if (min !== null || max !== null) {
+      filter.price = {};
+      if (!isNaN(min)) filter.price.$gte = min;
+      if (!isNaN(max)) filter.price.$lte = max;
+    }
+
+    // Stock filter
+    if (req.query.stock === "out") filter.stock = { $lte: 0 };
+    if (req.query.stock === "in") filter.stock = { $gt: 0 };
+
+    // SAFE SEARCH (regex only — because your schema uses Map, no full-text needed)
+    if (req.query.q) {
+      const q = String(req.query.q).trim();
+      const regex = { $regex: q, $options: "i" };
+      filter.$or = [{ name: regex }, { description: regex }];
+    }
+
+    // Sorting logic
+    let sort = { createdAt: -1 };
+    const sortMap = {
+      price_asc: { price: 1 },
+      price_desc: { price: -1 },
+      newest: { createdAt: -1 },
+      popular: { "rating.count": -1 },
+      rating_desc: { "rating.average": -1 },
+    };
+    if (req.query.sort && sortMap[req.query.sort]) {
+      sort = sortMap[req.query.sort];
+    }
+
+    // Projection for users (admin gets full fields)
+    const projection = isAdmin
+      ? null
+      : "name slug price discountPrice imageUrl images stock category rating createdAt";
+
+    // Final query
+    const [total, products] = await Promise.all([
+      Product.countDocuments(filter),
+      Product.find(filter)
+        .select(projection)
+        .populate("category", "name slug")
+        .sort(sort)
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+    ]);
+
+    return res.json({
+      success: true,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+      products,
+    });
+  } catch (error) {
+    console.error("GET PRODUCTS ERROR:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/* ============================================================
+   GET SINGLE PRODUCT (detail)
+   - returns full product including reviews & specs
+   - short cache (20s) applied
+============================================================ */
+export const getProductById = async (req, res) => {
+  try {
+    res.set("Cache-Control", "public, max-age=20");
+
+    const product = await Product.findOne({
+      _id: req.params.id,
+      isArchived: { $ne: true },
+    })
+      .populate("category", "name slug")
+      .lean();
+
+    if (!product)
+      return res
+        .status(404)
+        .json({ success: false, message: "Product not found" });
+
+    product.imageUrl = cloudinaryOptimizeUrl(product.imageUrl);
+    product.images = (product.images || []).map(cloudinaryOptimizeUrl);
+
+    return res.json({ success: true, product });
+  } catch (error) {
+    console.error("GET PRODUCT BY ID ERROR:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/* ============================================================
+   GET PRODUCTS BY CATEGORY SLUG
+   - uses product list cache rule (30s)
+============================================================ */
+export const getProductsByCategorySlug = async (req, res) => {
+  try {
+    res.set("Cache-Control", "public, max-age=30");
+
+    const category = await Category.findOne({ slug: req.params.slug }).lean();
+    if (!category)
+      return res
+        .status(404)
+        .json({ success: false, message: "Category not found" });
+
+    const isAdmin = req.query.admin === "true";
+    const filter = isAdmin
+      ? { category: category._id }
+      : { category: category._id, isArchived: { $ne: true } };
+
+    const products = await Product.find(filter)
+      .select(
+        "name slug price discountPrice imageUrl images stock rating.average rating.count"
+      )
+      .populate("category", "name slug")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const cleaned = products.map((p) => ({
+      ...p,
+      imageUrl: cloudinaryOptimizeUrl(p.imageUrl),
+      images: (p.images || []).map(cloudinaryOptimizeUrl),
+    }));
+
+    return res.json({ success: true, products: cleaned });
+  } catch (error) {
+    console.error("GET PRODUCTS BY CATEGORY SLUG ERROR:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/* ============================================================
+   GET PRODUCT BY SLUG
+============================================================ */
+export const getProductBySlug = async (req, res) => {
+  try {
+    const slug = req.params.slug;
+
+    const cacheKey = `productSlug:${slug}`;
+
+    if (cacheKey) {
+      return res.json(JSON.parse(cached));
+    }
+
+    const product = await Product.findOne({
+      slug,
+      isArchived: { $ne: true },
+    })
+      .populate("category", "name slug")
+      .lean();
+
+    if (!product)
+      return res
+        .status(404)
+        .json({ success: false, message: "Product not found" });
+
+    product.imageUrl = cloudinaryOptimizeUrl(product.imageUrl);
+    product.images = (product.images || []).map(cloudinaryOptimizeUrl);
+
+    const response = { success: true, product };
+
+    return res.json(response);
+  } catch (error) {
+    console.error("GET PRODUCT BY SLUG ERROR:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/* ============================================================
+   SOFT ARCHIVE PRODUCT (admin)
+   - mark isArchived true (hide from shop), keep in DB for analytics/orders
+============================================================ */
+export const softDeleteProduct = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product)
+      return res
+        .status(404)
+        .json({ success: false, message: "Product not found" });
+
+    product.isArchived = true;
+    product.archivedAt = new Date();
+    product.stock = 0;
+
+    await product.save();
+
+    return res.json({
+      success: true,
+      message: "Product archived (soft-deleted)",
+    });
+  } catch (error) {
+    console.error("SOFT DELETE PRODUCT ERROR:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/* ============================================================
+   RESTORE PRODUCT
+============================================================ */
+export const restoreProduct = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product)
+      return res
+        .status(404)
+        .json({ success: false, message: "Product not found" });
+
+    product.isArchived = false;
+    product.archivedAt = null;
+
+    await product.save();
+
+    return res.json({ success: true, message: "Product restored" });
+  } catch (error) {
+    console.error("RESTORE PRODUCT ERROR:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/* ============================================================
+   HARD DELETE PRODUCT (permanent) — block if product is in orders
+============================================================ */
+// export const hardDeleteProduct = async (req, res) => {
+//   try {
+//     const product = await Product.findById(req.params.id);
+//     if (!product)
+//       return res
+//         .status(404)
+//         .json({ success: false, message: "Product not found" });
+
+//     const hasOrders = await Order.findOne({ "items.product": product._id });
+//     if (hasOrders) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Cannot permanently delete: product has orders.",
+//       });
+//     }
+
+//     await Product.findByIdAndDelete(req.params.id);
+
+//     return res.json({ success: true, message: "Product permanently deleted" });
+//   } catch (error) {
+//     console.error("HARD DELETE PRODUCT ERROR:", error);
+//     return res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
+/*----------------------------------------------*/
+///// Update with product image also delete
+
+export const hardDeleteProduct = async (req, res) => {
+  try {
+    // 1) Find product
+    const product = await Product.findById(req.params.id);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    // 2) Block permanent delete if orders exist
+    const hasOrders = await Order.findOne({ "items.product": product._id });
+    if (hasOrders) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot permanently delete: product has orders.",
+      });
+    }
+
+    // 3) Collect Cloudinary publicIds from product.images[]
+    let publicIds = Array.isArray(product.images)
+      ? product.images.map((img) => img.publicId).filter(Boolean)
+      : [];
+
+    // 4) Fallback: derive publicId from imageUrl (only if needed)
+    if (publicIds.length === 0 && product.imageUrl) {
+      const publicId = extractPublicIdFromUrl(product.imageUrl);
+      if (publicId) publicIds.push(publicId);
+    }
+
+    // 5) Delete images from Cloudinary
+    let cloudinaryResult = null;
+    let cloudinaryError = null;
+
+    if (publicIds.length > 0) {
+      try {
+        cloudinaryResult = await cloudinary.api.delete_resources(publicIds);
+        console.log("Cloudinary deletion:", cloudinaryResult);
+      } catch (err) {
+        cloudinaryError = err;
+        console.error("Cloudinary delete error:", err);
+      }
+    }
+
+    // 6) Permanently remove product from DB
+    await Product.findByIdAndDelete(req.params.id);
+
+    // 7) Craft response
+    if (cloudinaryError) {
+      return res.json({
+        success: true,
+        message:
+          "Product deleted from DB, but Cloudinary deletion failed. Check logs.",
+        cloudinaryError: cloudinaryError.message,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message:
+        "Product permanently deleted (Cloudinary images removed if found).",
+      cloudinaryResult,
+    });
+  } catch (error) {
+    console.error("HARD DELETE PRODUCT ERROR:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/* -------------------------------------------
+   Helper: Extract Cloudinary publicId from URL
+----------------------------------------------- */
+
+/* ============================================================
+   ADD REVIEW
+   - unchanged logic (keeps verifying user & prevents duplicate review)
+   - review changes will update product.save() watchers (pre save rating calc)
+============================================================ */
+export const addReview = async (req, res) => {
+  try {
+    const { rating, comment } = req.body;
+    const userId = req.user?.id;
+
+    const product = await Product.findById(req.params.id);
+    if (!product)
+      return res
+        .status(404)
+        .json({ success: false, message: "Product not found" });
+
+    if (!userId)
+      return res
+        .status(401)
+        .json({ success: false, message: "Login required" });
+
+    if (rating < 1 || rating > 5)
+      return res
+        .status(400)
+        .json({ success: false, message: "Rating must be 1–5" });
+
+    const already = product.reviews.find((r) => r.user.toString() === userId);
+    if (already)
+      return res
+        .status(400)
+        .json({ success: false, message: "Already reviewed" });
+
+    product.reviews.push({
+      user: userId,
+      name: req.user.name,
+      rating: Number(rating),
+      comment,
+    });
+
+    await product.save();
+
+    const updated = await Product.findById(req.params.id)
+      .populate("reviews.user", "name")
+      .lean();
+
+    return res.status(201).json({
+      success: true,
+      message: "Review added",
+      reviews: updated.reviews,
+      rating: updated.rating,
+    });
+  } catch (error) {
+    console.error("ADD REVIEW ERROR:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to add review" });
+  }
+};

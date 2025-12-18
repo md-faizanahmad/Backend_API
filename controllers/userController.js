@@ -226,22 +226,27 @@ export async function loginWithOtp(req, res) {
   }
 }
 
+// controllers/userController.js (me)
 export async function me(req, res) {
   try {
+    // prefer req.userId (set by middleware)
     const user = await User.findById(req.userId).select("name email phone");
-    if (!user)
+    if (!user) {
       return res.status(404).json({ success: false, message: "No user" });
+    }
 
     return res.json({
       success: true,
       user: {
-        id: String(user._id),
+        _id: String(user._id), // <-- normalized to _id
+        id: String(user._id), // <-- keep id for backward compatibility (optional)
         name: user.name,
         email: user.email,
         phone: user.phone,
       },
     });
-  } catch {
+  } catch (err) {
+    console.error("[me] error:", err);
     return res.status(500).json({ success: false, message: "Failed" });
   }
 }
