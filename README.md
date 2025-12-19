@@ -1,46 +1,129 @@
-MyAZStore Backend API
-<p>A production-ready backend for the MyAZStore e-commerce platform, supporting both Shop and Admin features. Built with Node.js, Express, MongoDB, JWT authentication, Cloudinary uploads, Razorpay payments, and PDF invoice generation.</p>
-📦 Tech Stack
-<ul> <li><strong>Runtime:</strong> Node.js (ES Modules)</li> <li><strong>Framework:</strong> Express.js</li> <li><strong>Database:</strong> MongoDB + Mongoose</li> <li><strong>Authentication:</strong> JWT + bcrypt</li> <li><strong>File Uploads:</strong> Multer + Cloudinary</li> <li><strong>Payments:</strong> Razorpay</li> <li><strong>Emailing:</strong> Nodemailer</li> <li><strong>PDF Generation:</strong> pdfkit + pdfkit-table</li> <li><strong>Validation:</strong> Zod</li> <li><strong>Testing:</strong> Node test runner + Supertest + MongoDB Memory Server</li> <li><strong>Serverless Ready:</strong> serverless-http</li> </ul>
-🔗 API Route Structure
-<strong>Shop / Public Routes</strong>
-<ul> <li>/v1/products</li> <li>/api/categories</li> <li>/v1/users</li> <li>/v1/wishlist</li> <li>/v1/cart</li> <li>/v1/addresses</li> <li>/v1/orders</li> <li>/v1/checkout</li> <li>/v1/payment</li> <li>/v1/invoice</li> <li>/v1/notifications</li> <li>/v1/hero</li> <li>/v1/ai</li> </ul>
-<strong>Admin Routes</strong>
-<ul> <li>/v1/admin</li> <li>/v1/admin/inventory</li> <li>/v1/admin/profit</li> </ul>
-⚙️ Environment Variables
-<p>Create a <code>.env</code> file with:</p>
-PORT=
-MONGO_URI=
+MyStore Backend – Production-Ready E-commerce API
 
-# JWT
-JWT_SECRET=
-JWT_EXPIRES_IN=1d
+A scalable, secure backend system powering the MyStore e-commerce platform, supporting customer shopping workflows and a full-featured admin dashboard.
+Designed to reflect real-world business logic, not a demo or toy API.
 
-# Cloudinary
-CLOUDINARY_CLOUD_NAME=
-CLOUDINARY_API_KEY=
-CLOUDINARY_API_SECRET=
+🎯 Purpose (Why this backend exists)
 
-# Razorpay
-RAZORPAY_KEY_ID=
-RAZORPAY_KEY_SECRET=
+This backend handles end-to-end e-commerce operations, including authentication, product management, payments, orders, invoices, and admin analytics — similar to what small to mid-scale production systems use.
 
-# SMTP
-SMTP_HOST=
-SMTP_PORT=
-SMTP_USER=
-SMTP_PASS=
+It is built with clean architecture, validation, and security best practices, and is serverless-ready for modern deployments.
 
-BASE_URL=
-FRONTEND_URL=
+🧱 Core Capabilities
+🔐 Authentication & Security
 
-📁 Key Features
-<ul> <li><strong>User Authentication:</strong> Register, login, JWT auth, password hashing</li> <li><strong>Product Management:</strong> CRUD, search, filters, pagination, Cloudinary image upload</li> <li><strong>Categories:</strong> Full CRUD</li> <li><strong>Cart System:</strong> Add/update/remove items</li> <li><strong>Wishlist:</strong> User wishlist management</li> <li><strong>Checkout:</strong> Razorpay payments, address handling</li> <li><strong>Orders:</strong> Create orders, order tracking, admin status updates</li> <li><strong>Inventory (Admin):</strong> Stock management</li> <li><strong>Profit Analytics (Admin):</strong> Reporting and statistics</li> <li><strong>PDF Invoices:</strong> Auto invoice generation + email</li> <li><strong>Notifications:</strong> System updates and alerts</li> <li><strong>Hero/Banner:</strong> Manage homepage banners</li> <li><strong>AI Endpoints:</strong> Internal automation tools</li> </ul>
-🧪 Testing
-<ul> <li>Node’s built-in test runner</li> <li>Supertest for endpoint testing</li> <li>MongoDB Memory Server for fast in-memory DB instance</li> </ul>
-📦 npm Scripts
-<pre> npm start → production server npm run dev → nodemon development server npm test → run tests </pre>
-🛡️ Security
-<ul> <li>Passwords hashed with bcrypt</li> <li>JWT-based authentication</li> <li>Zod validation for inputs</li> <li>CORS configured</li> <li>Secrets in environment variables</li> </ul>
-📄 Notes
-<ul> <li>Backend is nearly completed</li> <li>Frontend integration in progress</li> <li>Admin + Shop features fully supported by API</li> </ul>
+User registration and login with JWT (HttpOnly cookies)
+
+Email verification & OTP-based login
+
+Password hashing using bcrypt
+
+Role-based access (User / Admin)
+
+Secure admin authentication (Google OAuth + JWT verification)
+
+🛍️ Product & Catalog Management
+
+Product CRUD with image uploads (Cloudinary)
+
+Category management
+
+Search, filters, pagination
+
+Stock and inventory tracking (Admin)
+
+🛒 Cart, Checkout & Payments
+
+Cart add/update/remove logic
+
+Razorpay payment integration
+
+Address management during checkout
+
+Order creation after successful payment
+
+📦 Orders & Post-Purchase Flow
+
+Order tracking with status updates
+
+Admin-controlled order lifecycle
+
+Automatic PDF invoice generation
+
+Invoice emailed to customer + downloadable from dashboard
+
+📊 Admin & Business Features
+
+Sales and order analytics
+
+Profit and inventory insights
+
+User and order management dashboards
+
+Real-time data ready for chart visualization
+
+📩 Notifications & Emails
+
+Transactional emails via Nodemailer
+
+Order confirmation and invoice delivery
+
+System notifications support
+
+🧰 Tech Stack
+
+Runtime & Framework
+
+Node.js (ES Modules)
+
+Express.js
+
+Database
+
+MongoDB + Mongoose
+
+Authentication & Validation
+
+JWT + bcrypt
+
+Zod schema validation
+
+Payments & Media
+
+Razorpay (test & live ready)
+
+Multer + Cloudinary
+
+Documents & Emails
+
+pdfkit + pdfkit-table (Invoice generation)
+
+Nodemailer
+
+Testing & Quality
+
+Node Test Runner
+
+Supertest
+
+MongoDB Memory Server
+
+Deployment
+
+Serverless-ready (serverless-http)
+
+Optimized for Vercel Functions
+
+🧠 Engineering Highlights (What recruiters should notice)
+
+Clear separation of routes, controllers, services, and validations
+
+Defensive programming with schema validation (Zod)
+
+Secure cookie-based authentication (not localStorage)
+
+Real payment workflow (not mocked)
+
+Production-style invoice generation and email delivery
+
+Written with scalability and maintainability in mind
