@@ -1,4 +1,8 @@
 <h1>🛒 MyStore Backend – Production-Ready E-commerce API</h1>
+<h5> <a href="https://github.com/md-faizanahmad/MyShop">Shop Repo</a> and  <a href="myazstore.shop">Shop Live</a> </h5>
+<h5> <a href="https://github.com/md-faizanahmad/Shop_Admin">Admin Repo</a> and  <a href="admin.myazstore.shop">Admin Live </a></h5>
+
+</hr>
 
 <p>
 A <strong>secure, scalable backend system</strong> powering a real-world e-commerce platform,
