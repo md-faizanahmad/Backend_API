@@ -1,46 +1,112 @@
-MyAZStore Backend API
-<p>A production-ready backend for the MyAZStore e-commerce platform, supporting both Shop and Admin features. Built with Node.js, Express, MongoDB, JWT authentication, Cloudinary uploads, Razorpay payments, and PDF invoice generation.</p>
-📦 Tech Stack
-<ul> <li><strong>Runtime:</strong> Node.js (ES Modules)</li> <li><strong>Framework:</strong> Express.js</li> <li><strong>Database:</strong> MongoDB + Mongoose</li> <li><strong>Authentication:</strong> JWT + bcrypt</li> <li><strong>File Uploads:</strong> Multer + Cloudinary</li> <li><strong>Payments:</strong> Razorpay</li> <li><strong>Emailing:</strong> Nodemailer</li> <li><strong>PDF Generation:</strong> pdfkit + pdfkit-table</li> <li><strong>Validation:</strong> Zod</li> <li><strong>Testing:</strong> Node test runner + Supertest + MongoDB Memory Server</li> <li><strong>Serverless Ready:</strong> serverless-http</li> </ul>
-🔗 API Route Structure
-<strong>Shop / Public Routes</strong>
-<ul> <li>/api/products</li> <li>/api/categories</li> <li>/api/users</li> <li>/api/wishlist</li> <li>/api/cart</li> <li>/api/addresses</li> <li>/api/orders</li> <li>/api/checkout</li> <li>/api/payment</li> <li>/api/invoice</li> <li>/api/notifications</li> <li>/api/hero</li> <li>/api/ai</li> </ul>
-<strong>Admin Routes</strong>
-<ul> <li>/api/admin</li> <li>/api/admin/inventory</li> <li>/api/admin/profit</li> </ul>
-⚙️ Environment Variables
-<p>Create a <code>.env</code> file with:</p>
-PORT=
-MONGO_URI=
+<h1>🛒 MyStore Backend – Production-Ready E-commerce API</h1>
+<h5> <a href="https://github.com/md-faizanahmad/MyShop">Shop Repo</a> and  <a href="myazstore.shop">Shop Live</a> </h5>
+<h5> <a href="https://github.com/md-faizanahmad/Shop_Admin">Admin Repo</a> and  <a href="admin.myazstore.shop">Admin Live </a></h5>
 
-# JWT
-JWT_SECRET=
-JWT_EXPIRES_IN=1d
+</hr>
 
-# Cloudinary
-CLOUDINARY_CLOUD_NAME=
-CLOUDINARY_API_KEY=
-CLOUDINARY_API_SECRET=
+<p>
+A <strong>secure, scalable backend system</strong> powering a real-world e-commerce platform,
+supporting both <strong>customer-facing shopping flows</strong> and a
+<strong>full-featured admin dashboard</strong>.
+</p>
 
-# Razorpay
-RAZORPAY_KEY_ID=
-RAZORPAY_KEY_SECRET=
+<hr />
 
-# SMTP
-SMTP_HOST=
-SMTP_PORT=
-SMTP_USER=
-SMTP_PASS=
+<h2>🎯 Project Purpose</h2>
+<p>
+This backend is designed to handle <strong>end-to-end e-commerce operations</strong> including
+authentication, product management, payments, orders, invoicing, and admin analytics.
+It reflects <strong>production-style backend architecture</strong>, not a demo or tutorial API.
+</p>
 
-BASE_URL=
-FRONTEND_URL=
+<hr />
 
-📁 Key Features
-<ul> <li><strong>User Authentication:</strong> Register, login, JWT auth, password hashing</li> <li><strong>Product Management:</strong> CRUD, search, filters, pagination, Cloudinary image upload</li> <li><strong>Categories:</strong> Full CRUD</li> <li><strong>Cart System:</strong> Add/update/remove items</li> <li><strong>Wishlist:</strong> User wishlist management</li> <li><strong>Checkout:</strong> Razorpay payments, address handling</li> <li><strong>Orders:</strong> Create orders, order tracking, admin status updates</li> <li><strong>Inventory (Admin):</strong> Stock management</li> <li><strong>Profit Analytics (Admin):</strong> Reporting and statistics</li> <li><strong>PDF Invoices:</strong> Auto invoice generation + email</li> <li><strong>Notifications:</strong> System updates and alerts</li> <li><strong>Hero/Banner:</strong> Manage homepage banners</li> <li><strong>AI Endpoints:</strong> Internal automation tools</li> </ul>
-🧪 Testing
-<ul> <li>Node’s built-in test runner</li> <li>Supertest for endpoint testing</li> <li>MongoDB Memory Server for fast in-memory DB instance</li> </ul>
-📦 npm Scripts
-<pre> npm start → production server npm run dev → nodemon development server npm test → run tests </pre>
-🛡️ Security
-<ul> <li>Passwords hashed with bcrypt</li> <li>JWT-based authentication</li> <li>Zod validation for inputs</li> <li>CORS configured</li> <li>Secrets in environment variables</li> </ul>
-📄 Notes
-<ul> <li>Backend is nearly completed</li> <li>Frontend integration in progress</li> <li>Admin + Shop features fully supported by API</li> </ul>
+<h2>🧱 Core Features</h2>
+
+<h3>🔐 Authentication & Security</h3>
+<ul>
+  <li>User registration and login using JWT (HttpOnly cookies)</li>
+  <li>Email verification and OTP-based authentication</li>
+  <li>Password hashing with bcrypt</li>
+  <li>Role-based access control (User / Admin)</li>
+  <li>Secure admin authentication with Google OAuth and JWT verification</li>
+</ul>
+
+<h3>🛍️ Product & Catalog Management</h3>
+<ul>
+  <li>Product CRUD operations with Cloudinary image uploads</li>
+  <li>Category management</li>
+  <li>Search, filtering, and pagination</li>
+  <li>Inventory and stock tracking (Admin)</li>
+</ul>
+
+<h3>🛒 Cart, Checkout & Payments</h3>
+<ul>
+  <li>Cart add, update, and remove logic</li>
+  <li>Razorpay payment integration</li>
+  <li>Address handling during checkout</li>
+  <li>Order creation after successful payment</li>
+</ul>
+
+<h3>📦 Orders & Post-Purchase</h3>
+<ul>
+  <li>Order tracking with status updates</li>
+  <li>Admin-controlled order lifecycle</li>
+  <li>Automatic PDF invoice generation</li>
+  <li>Invoice delivery via email and user dashboard download</li>
+</ul>
+
+<h3>📊 Admin & Business Capabilities</h3>
+<ul>
+  <li>Sales and order analytics</li>
+  <li>Profit and inventory insights</li>
+  <li>User and order management</li>
+  <li>Analytics-ready APIs for dashboards</li>
+</ul>
+
+<hr />
+
+<h2>🧰 Tech Stack</h2>
+
+<ul>
+  <li><strong>Runtime:</strong> Node.js (ES Modules)</li>
+  <li><strong>Framework:</strong> Express.js</li>
+  <li><strong>Database:</strong> MongoDB + Mongoose</li>
+  <li><strong>Authentication:</strong> JWT, bcrypt</li>
+  <li><strong>Validation:</strong> Zod</li>
+  <li><strong>Payments:</strong> Razorpay</li>
+  <li><strong>File Uploads:</strong> Multer + Cloudinary</li>
+  <li><strong>Email:</strong> Nodemailer</li>
+  <li><strong>PDF Invoices:</strong> pdfkit, pdfkit-table</li>
+  <li><strong>Testing:</strong> Node Test Runner, Supertest, MongoDB Memory Server</li>
+  <li><strong>Deployment:</strong> Serverless-ready (Vercel Functions)</li>
+</ul>
+
+<hr />
+
+<h2>🧠 Engineering Highlights</h2>
+<ul>
+  <li>Clean separation of routes, controllers, services, and validation layers</li>
+  <li>Schema-based validation to prevent invalid API requests</li>
+  <li>Secure cookie-based authentication (no localStorage tokens)</li>
+  <li>Real payment workflow (not mocked)</li>
+  <li>Production-style invoice generation and email delivery</li>
+  <li>Designed for scalability and maintainability</li>
+</ul>
+
+<hr />
+
+<h2>🔗 Related Applications</h2>
+<ul>
+  <li>Customer Storefront (React-based frontend)</li>
+  <li>Admin Dashboard (React with analytics)</li>
+</ul>
+
+<hr />
+
+<h2>🚀 Project Status</h2>
+<p>
+Actively developed and improved.
+Built to demonstrate <strong>real backend responsibilities</strong> expected in
+<strong>junior to mid-level full-stack developer roles</strong>.
+</p>
