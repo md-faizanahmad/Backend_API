@@ -64,20 +64,50 @@ export async function getAllOrders(req, res) {
    CREATE ORDER (USER)
    + New Order Notification
 ===================================================== */
+// export async function createOrder(req, res) {
+//   try {
+//     const order = await Order.create(req.body);
+
+//     // 🔔 NOTIFICATION — NEW ORDER
+//     createNotification({
+//       type: "new_order",
+//       title: "New Order Received",
+//       message: `Order #${order.orderId} was placed`,
+//       link: `/dashboard/orders/${order._id}`,
+//     });
+
+//     res.status(201).json({ success: true, order });
+//   } catch (err) {
+//     res.status(400).json({ success: false, message: "Invalid order data" });
+//   }
+// }
+////////////////////////////////////////////////////////////////////////////////
+/////////////////// update witn more notifi info
 export async function createOrder(req, res) {
   try {
     const order = await Order.create(req.body);
 
-    // 🔔 NOTIFICATION — NEW ORDER
+    // 🔔 NOTIFICATION — NEW ORDER (ADMIN)
     createNotification({
       type: "new_order",
       title: "New Order Received",
       message: `Order #${order.orderId} was placed`,
-      link: `/dashboard/orders/${order._id}`,
+      // link: `/dashboard/orders/admin/order/${order._id}`,
+      link: `/dashboard/orders/manage/${order._id}`,
+      meta: {
+        orderId: order._id,
+        orderNumber: order.orderId,
+        userId: order.user, // assuming order.user exists
+        userName: order.shippingAddress?.name || "Unknown",
+        userEmail: order.email || null,
+        amount: order.totalAmount,
+        paymentMethod: order.paymentMethod, // "cod" | "online"
+      },
     });
 
     res.status(201).json({ success: true, order });
   } catch (err) {
+    console.error("createOrder error:", err);
     res.status(400).json({ success: false, message: "Invalid order data" });
   }
 }
@@ -102,6 +132,9 @@ export async function getSingleOrder(req, res) {
    + Status Change Notification
    + Low Stock Notifications
 ===================================================== */
+//////////////// updated with low stock and notifi infos
+////////////// 20-12-2025
+
 export async function updateOrderStatus(req, res) {
   const { orderId } = req.params;
   const { status } = req.body;
@@ -119,43 +152,130 @@ export async function updateOrderStatus(req, res) {
   }
 
   const order = await Order.findById(orderId);
-  if (!order)
+  if (!order) {
     return res.status(404).json({ success: false, message: "Order not found" });
+  }
+
+  const prevStatus = order.status;
+
+  // If no real change, stop early
+  if (prevStatus === status) {
+    return res.json({ success: true, message: "Status unchanged" });
+  }
 
   order.status = status;
-  await order.save();
 
-  // 🔔 NOTIFICATION — ORDER STATUS UPDATE
-  createNotification({
-    type: "order_status",
-    title: "Order Status Updated",
-    message: `Order #${order.orderId} → ${status.toUpperCase()}`,
-    link: `/dashboard/orders/${order._id}`,
-  });
-
-  // 🔥 LOW STOCK CHECK
-  if (status === "delivered") {
+  // 🔒 STOCK ADJUSTMENT — EXACTLY ONCE
+  if (status === "delivered" && !order.stockAdjusted) {
     for (const item of order.items) {
       const product = await Product.findById(item.product);
-
       if (!product) continue;
 
       product.stock = Math.max(product.stock - item.qty, 0);
       await product.save();
 
+      // 🔕 LOW-STOCK DEDUPLICATION
       if (product.stock < LOW_LIMIT) {
-        createNotification({
+        const existingAlert = await Notification.findOne({
           type: "low_stock",
-          title: "Low Stock Alert",
-          message: `${product.name} stock is ${product.stock}`,
-          link: `/dashboard/products/edit/${product._id}`,
+          "meta.productId": product._id,
+          read: false,
         });
+
+        if (!existingAlert) {
+          createNotification({
+            type: "low_stock",
+            title: "Low Stock Alert",
+            message: `${product.name} stock is low`,
+            link: `/dashboard/products/edit/${product._id}`,
+            meta: {
+              productId: product._id,
+              productName: product.name,
+              stock: product.stock,
+              threshold: LOW_LIMIT,
+            },
+          });
+        }
       }
     }
+
+    order.stockAdjusted = true;
   }
+
+  await order.save();
+
+  // 🔔 ORDER STATUS NOTIFICATION (STRUCTURED)
+  createNotification({
+    type: "order_status",
+    title: "Order Status Updated",
+    message: `Order #${order.orderId} status changed`,
+    // link: `/dashboard/orders/admin/order/${order._id}`,
+    link: `/dashboard/orders/manage/${order._id}`,
+    meta: {
+      orderId: order._id,
+      orderNumber: order.orderId,
+      fromStatus: prevStatus,
+      toStatus: status,
+    },
+  });
 
   res.json({ success: true, message: "Status updated" });
 }
+
+// export async function updateOrderStatus(req, res) {
+//   const { orderId } = req.params;
+//   const { status } = req.body;
+
+//   const allowed = [
+//     "placed",
+//     "processing",
+//     "shipping",
+//     "delivered",
+//     "cancelled",
+//   ];
+
+//   if (!allowed.includes(status)) {
+//     return res.status(400).json({ success: false, message: "Invalid status" });
+//   }
+
+//   const order = await Order.findById(orderId);
+//   if (!order)
+//     return res.status(404).json({ success: false, message: "Order not found" });
+
+//   order.status = status;
+//   await order.save();
+
+//   // 🔔 NOTIFICATION — ORDER STATUS UPDATE
+//   createNotification({
+//     type: "order_status",
+//     title: "Order Status Updated",
+//     message: `Order #${order.orderId} → ${status.toUpperCase()}`,
+//     link: `/dashboard/orders/${order._id}`,
+//   });
+
+//   // 🔥 LOW STOCK CHECK
+//   if (status === "delivered") {
+//     for (const item of order.items) {
+//       const product = await Product.findById(item.product);
+
+//       if (!product) continue;
+
+//       product.stock = Math.max(product.stock - item.qty, 0);
+//       await product.save();
+
+//       if (product.stock < LOW_LIMIT) {
+//         createNotification({
+//           type: "low_stock",
+//           title: "Low Stock Alert",
+//           message: `${product.name} stock is ${product.stock}`,
+//           link: `/dashboard/products/edit/${product._id}`,
+//         });
+//       }
+//     }
+//   }
+
+//   res.json({ success: true, message: "Status updated" });
+// }
 
 /* =====================================================
    USER — MY ORDERS

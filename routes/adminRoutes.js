@@ -5,7 +5,10 @@ import Order from "../models/Order.js";
 import User from "../models/User.js";
 import { getDashboardStats } from "../controllers/adminDashboardController.js";
 import { generateInvoicePdf } from "../utils/generateInvoicePdf.js";
-import { getCustomersAnalytics } from "../controllers/adminCustomerAnalyticsController.js";
+import {
+  getCustomers,
+  getCustomersAnalytics,
+} from "../controllers/adminCustomerAnalyticsController.js";
 import rateLimit from "express-rate-limit";
 import {
   login,
@@ -72,10 +75,11 @@ router.get("/dashboard/charts", verifyAdminCookie, getDashboardCharts);
 router.get("/customers/analytics", verifyAdminCookie, getCustomersAnalytics);
 
 // User list
-router.get("/customers", verifyAdminCookie, async (req, res) => {
-  const users = await User.find().select("-password");
-  res.json({ success: true, users });
-});
+// router.get("/customers", verifyAdminCookie, async (req, res) => {
+//   const users = await User.find().select("-password");
+//   res.json({ success: true, users });
+// });
+router.get("/customers", verifyAdminCookie, getCustomers);
 
 // User details
 router.get("/customers/:id", verifyAdminCookie, async (req, res) => {

@@ -10,8 +10,8 @@ router.get("/", getHero);
 
 router.put(
   "/",
+  imageService.multerFields([{ name: "backgroundImage", maxCount: 1 }]),
   verifyAdminCookie,
-  imageService.multerArray("backgroundImage", 1),
   updateHero
 );
 

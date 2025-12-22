@@ -9,11 +9,8 @@
 //   - cloudinaryOptimizeUrl(url) -> string
 
 import Hero from "../models/Hero.js";
-import {
-  uploadBufferToCloudinary,
-  deletePublicId,
-  cloudinaryOptimizeUrl,
-} from "../utils/imageService.js";
+import { cloudinaryOptimizeUrl } from "../utils/imageService.js";
+import imageService from "../utils/imageService.js";
 
 /**
  * GET hero section (public)
@@ -47,12 +44,152 @@ export const getHero = async (req, res) => {
  * - If there was a previous backgroundPublicId (if model stores it) -> deletes it
  * - Saves backgroundImage (url) and, if model supports backgroundPublicId, saves that too
  */
+// export const updateHero = async (req, res) => {
+//   try {
+//     // Load existing hero doc if present
+//     let hero = await Hero.findOne();
+
+//     // Extract fields (FormData sends strings / JSON)
+//     const {
+//       liveBadge = "{}",
+//       headline = "",
+//       gradientHeadline = "",
+//       subheadline = "",
+//       primaryCTA = "{}",
+//       secondaryCTA = "{}",
+//       saleBadge = "{}",
+//     } = req.body;
+
+//     // Parse JSON-ish fields safely
+//     let parsedLiveBadge = {};
+//     let parsedPrimaryCTA = {};
+//     let parsedSecondaryCTA = {};
+//     let parsedSaleBadge = {};
+//     try {
+//       parsedLiveBadge = JSON.parse(liveBadge);
+//     } catch {}
+//     try {
+//       parsedPrimaryCTA = JSON.parse(primaryCTA);
+//     } catch {}
+//     try {
+//       parsedSecondaryCTA = JSON.parse(secondaryCTA);
+//     } catch {}
+//     try {
+//       parsedSaleBadge = JSON.parse(saleBadge);
+//     } catch {}
+
+//     // Prepare new background image variables
+//     let newBackgroundUrl = hero?.backgroundImage ?? null;
+//     let newBackgroundPublicId = hero?.backgroundPublicId ?? null; // optional field in model
+
+//     // If a file was uploaded, upload it to Cloudinary via shared helper
+//     if (req.file && req.file.buffer) {
+//       try {
+//         // Upload buffer -> normalized { url, publicId }
+//         const uploaded = await uploadBufferToCloudinary(req.file.buffer, {
+//           folder: "MyStore/hero",
+//         }); // will throw on error
+
+//         // Set new values
+//         newBackgroundUrl = uploaded.url;
+//         newBackgroundPublicId = uploaded.publicId || null;
+
+//         // If there was a previous publicId stored, and it's different, delete it
+//         // Only attempt deletion if hero existed and reported a publicId
+//         if (
+//           hero &&
+//           hero.backgroundPublicId &&
+//           hero.backgroundPublicId !== newBackgroundPublicId
+//         ) {
+//           // best-effort: don't block the update on deletion failure
+//           try {
+//             await deletePublicId(hero.backgroundPublicId);
+//             console.log(
+//               "Deleted old hero background publicId:",
+//               hero.backgroundPublicId
+//             );
+//           } catch (delErr) {
+//             console.warn(
+//               "Failed to delete old hero background publicId:",
+//               hero.backgroundPublicId,
+//               delErr
+//             );
+//             // We proceed anyway — at worst old image remains in Cloudinary
+//           }
+//         }
+//       } catch (uploadErr) {
+//         console.error("Hero image upload failed:", uploadErr);
+//         return res.status(500).json({
+//           success: false,
+//           message: "Failed to upload hero background image",
+//           error: uploadErr.message || String(uploadErr),
+//         });
+//       }
+//     }
+
+//     // If no hero exists, create; otherwise update fields
+//     if (!hero) {
+//       hero = await Hero.create({
+//         liveBadge: parsedLiveBadge,
+//         headline,
+//         gradientHeadline,
+//         subheadline,
+//         primaryCTA: parsedPrimaryCTA,
+//         secondaryCTA: parsedSecondaryCTA,
+//         saleBadge: parsedSaleBadge,
+//         backgroundImage: newBackgroundUrl,
+//         // optionally store publicId if the model has the field
+//         ...(newBackgroundPublicId
+//           ? { backgroundPublicId: newBackgroundPublicId }
+//           : {}),
+//       });
+//     } else {
+//       hero.liveBadge = parsedLiveBadge;
+//       hero.headline = headline;
+//       hero.gradientHeadline = gradientHeadline;
+//       hero.subheadline = subheadline;
+//       hero.primaryCTA = parsedPrimaryCTA;
+//       hero.secondaryCTA = parsedSecondaryCTA;
+//       hero.saleBadge = parsedSaleBadge;
+//       hero.backgroundImage = newBackgroundUrl;
+//       if (typeof hero.backgroundPublicId !== "undefined") {
+//         // if model had this field previously or allows it, update it
+//         hero.backgroundPublicId = newBackgroundPublicId ?? null;
+//       }
+//       await hero.save();
+//     }
+
+//     // Optimize URL for response (idempotent)
+//     const respHero = hero.toObject ? hero.toObject() : hero;
+//     if (respHero && respHero.backgroundImage)
+//       respHero.backgroundImage = cloudinaryOptimizeUrl(
+//         respHero.backgroundImage
+//       );
+
+//     return res.json({
+//       success: true,
+//       message: "Hero section updated",
+//       hero: respHero,
+//     });
+//   } catch (err) {
+//     console.error("UPDATE HERO ERROR:", err);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Failed to update hero section",
+//       error: err?.message ?? String(err),
+//     });
+//   }
+// };
+
+//////////////////////////
+// controllers/heroController.js
+
 export const updateHero = async (req, res) => {
   try {
-    // Load existing hero doc if present
+    // Load existing hero doc
     let hero = await Hero.findOne();
 
-    // Extract fields (FormData sends strings / JSON)
+    // Extract fields (from FormData -> strings)
     const {
       liveBadge = "{}",
       headline = "",
@@ -63,74 +200,52 @@ export const updateHero = async (req, res) => {
       saleBadge = "{}",
     } = req.body;
 
-    // Parse JSON-ish fields safely
-    let parsedLiveBadge = {};
-    let parsedPrimaryCTA = {};
-    let parsedSecondaryCTA = {};
-    let parsedSaleBadge = {};
-    try {
-      parsedLiveBadge = JSON.parse(liveBadge);
-    } catch {}
-    try {
-      parsedPrimaryCTA = JSON.parse(primaryCTA);
-    } catch {}
-    try {
-      parsedSecondaryCTA = JSON.parse(secondaryCTA);
-    } catch {}
-    try {
-      parsedSaleBadge = JSON.parse(saleBadge);
-    } catch {}
+    // Parse JSON fields
+    const parsedLiveBadge = safeParse(liveBadge, {});
+    const parsedPrimaryCTA = safeParse(primaryCTA, {});
+    const parsedSecondaryCTA = safeParse(secondaryCTA, {});
+    const parsedSaleBadge = safeParse(saleBadge, {});
 
-    // Prepare new background image variables
+    // ----------------------------------------------------
+    // 1. HANDLE MULTER FILES (multerArray("backgroundImage", 1))
+    // ----------------------------------------------------
+    const uploadedFile = req.files?.backgroundImage?.[0];
+
+    console.log("Received file inside controller:", uploadedFile);
+
     let newBackgroundUrl = hero?.backgroundImage ?? null;
-    let newBackgroundPublicId = hero?.backgroundPublicId ?? null; // optional field in model
+    let newBackgroundPublicId = hero?.backgroundPublicId ?? null;
 
-    // If a file was uploaded, upload it to Cloudinary via shared helper
-    if (req.file && req.file.buffer) {
-      try {
-        // Upload buffer -> normalized { url, publicId }
-        const uploaded = await uploadBufferToCloudinary(req.file.buffer, {
-          folder: "MyStore/hero",
-        }); // will throw on error
+    if (uploadedFile && uploadedFile.buffer) {
+      console.log("Uploading to Cloudinary...");
 
-        // Set new values
-        newBackgroundUrl = uploaded.url;
-        newBackgroundPublicId = uploaded.publicId || null;
+      const uploaded = await imageService.uploadBufferToCloudinary(
+        uploadedFile.buffer,
+        { folder: "MyStore/hero" }
+      );
 
-        // If there was a previous publicId stored, and it's different, delete it
-        // Only attempt deletion if hero existed and reported a publicId
-        if (
-          hero &&
-          hero.backgroundPublicId &&
-          hero.backgroundPublicId !== newBackgroundPublicId
-        ) {
-          // best-effort: don't block the update on deletion failure
-          try {
-            await deletePublicId(hero.backgroundPublicId);
-            console.log(
-              "Deleted old hero background publicId:",
-              hero.backgroundPublicId
-            );
-          } catch (delErr) {
-            console.warn(
-              "Failed to delete old hero background publicId:",
-              hero.backgroundPublicId,
-              delErr
-            );
-            // We proceed anyway — at worst old image remains in Cloudinary
-          }
+      console.log("Cloudinary upload result:", uploaded);
+
+      newBackgroundUrl = uploaded.url;
+      newBackgroundPublicId = uploaded.publicId || null;
+
+      // Delete old file if different publicId
+      if (
+        hero?.backgroundPublicId &&
+        hero.backgroundPublicId !== newBackgroundPublicId
+      ) {
+        try {
+          await imageService.deletePublicId(hero.backgroundPublicId);
+          console.log("Deleted old hero background:", hero.backgroundPublicId);
+        } catch (err) {
+          console.warn("Failed to delete old image:", err);
         }
-      } catch (uploadErr) {
-        console.error("Hero image upload failed:", uploadErr);
-        return res.status(500).json({
-          success: false,
-          message: "Failed to upload hero background image",
-          error: uploadErr.message || String(uploadErr),
-        });
       }
     }
 
-    // If no hero exists, create; otherwise update fields
+    // ----------------------------------------------------
+    // 2. UPDATE OR CREATE HERO DOCUMENT
+    // ----------------------------------------------------
     if (!hero) {
       hero = await Hero.create({
         liveBadge: parsedLiveBadge,
@@ -141,10 +256,7 @@ export const updateHero = async (req, res) => {
         secondaryCTA: parsedSecondaryCTA,
         saleBadge: parsedSaleBadge,
         backgroundImage: newBackgroundUrl,
-        // optionally store publicId if the model has the field
-        ...(newBackgroundPublicId
-          ? { backgroundPublicId: newBackgroundPublicId }
-          : {}),
+        backgroundPublicId: newBackgroundPublicId,
       });
     } else {
       hero.liveBadge = parsedLiveBadge;
@@ -155,19 +267,19 @@ export const updateHero = async (req, res) => {
       hero.secondaryCTA = parsedSecondaryCTA;
       hero.saleBadge = parsedSaleBadge;
       hero.backgroundImage = newBackgroundUrl;
-      if (typeof hero.backgroundPublicId !== "undefined") {
-        // if model had this field previously or allows it, update it
-        hero.backgroundPublicId = newBackgroundPublicId ?? null;
-      }
+      hero.backgroundPublicId = newBackgroundPublicId;
       await hero.save();
     }
 
-    // Optimize URL for response (idempotent)
+    // ----------------------------------------------------
+    // 3. OPTIMIZE URL FOR RESPONSE
+    // ----------------------------------------------------
     const respHero = hero.toObject ? hero.toObject() : hero;
-    if (respHero && respHero.backgroundImage)
-      respHero.backgroundImage = cloudinaryOptimizeUrl(
+    if (respHero.backgroundImage) {
+      respHero.backgroundImage = imageService.cloudinaryOptimizeUrl(
         respHero.backgroundImage
       );
+    }
 
     return res.json({
       success: true,
@@ -179,7 +291,18 @@ export const updateHero = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to update hero section",
-      error: err?.message ?? String(err),
+      error: err.message || String(err),
     });
   }
 };
+
+// ----------------------------------------------------
+// Helper to safely parse JSON fields
+// ----------------------------------------------------
+function safeParse(str, fallback) {
+  try {
+    return JSON.parse(str);
+  } catch {
+    return fallback;
+  }
+}

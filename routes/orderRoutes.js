@@ -296,9 +296,9 @@ router.get("/", verifyAdminCookie, async (req, res) => {
    ADMIN: Get Single Order
 ========================================================== */
 router.get("/admin/order/:orderId", verifyAdminCookie, async (req, res) => {
-  const order = await Order.findById(req.params.orderId).populate(
-    "items.product"
-  );
+  const order = await Order.findById(req.params.orderId)
+    .populate("items.product", "name imageUrl price")
+    .populate("user", "name email");
 
   if (!order) {
     return res.status(404).json({ success: false, message: "Order not found" });
@@ -405,11 +405,27 @@ router.get("/my-orders", verifyUserCookie, async (req, res) => {
 /* ==========================================================
    USER: Get Single Order
 ========================================================== */
+// router.get("/:orderId", verifyUserCookie, async (req, res) => {
+//   const order = await Order.findOne({
+//     _id: req.params.orderId,
+//     user: req.userId,
+//   }).populate("items.product");
+
+//   if (!order)
+//     return res.status(404).json({ success: false, message: "Order not found" });
+
+//   res.json({ success: true, order });
+// });
+//// Fixed user with id cant see all fields
 router.get("/:orderId", verifyUserCookie, async (req, res) => {
   const order = await Order.findOne({
     _id: req.params.orderId,
     user: req.userId,
-  }).populate("items.product");
+  }).populate({
+    path: "items.product",
+    select:
+      "-isArchived -archivedAt -isDeleted -deletedAt -costPrice  -isOutOfStock -stockStatus",
+  });
 
   if (!order)
     return res.status(404).json({ success: false, message: "Order not found" });

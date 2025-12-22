@@ -41,6 +41,12 @@ const orderSchema = new mongoose.Schema(
       signature: String,
     },
     shippingAddress: shippingAddressSchema,
+
+    // fix for low stock
+    stockAdjusted: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

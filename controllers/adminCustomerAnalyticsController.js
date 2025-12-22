@@ -123,3 +123,91 @@ export async function getCustomersAnalytics(req, res) {
     res.status(500).json({ success: false, message: "Server error" });
   }
 }
+
+////////// this for getCustomers in customer page in admin
+
+export async function getCustomers(req, res) {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      q = "",
+      sortBy = "createdAt",
+      order = "desc",
+    } = req.query;
+
+    const skip = (Number(page) - 1) * Number(limit);
+    const sortOrder = order === "asc" ? 1 : -1;
+
+    const matchStage = {
+      role: { $ne: "admin" },
+      ...(q && {
+        $or: [
+          { name: { $regex: q, $options: "i" } },
+          { email: { $regex: q, $options: "i" } },
+          { phone: { $regex: q, $options: "i" } },
+        ],
+      }),
+    };
+
+    const pipeline = [
+      { $match: matchStage },
+
+      // Join orders
+      {
+        $lookup: {
+          from: "orders",
+          localField: "_id",
+          foreignField: "user",
+          as: "orders",
+        },
+      },
+
+      // Derived fields
+      {
+        $addFields: {
+          ordersCount: { $size: "$orders" },
+          totalSpent: { $sum: "$orders.totalAmount" },
+        },
+      },
+
+      {
+        $project: {
+          password: 0,
+          orders: 0,
+          __v: 0,
+        },
+      },
+
+      // Sorting
+      { $sort: { [sortBy]: sortOrder } },
+
+      // Pagination + total count
+      {
+        $facet: {
+          data: [{ $skip: skip }, { $limit: Number(limit) }],
+          meta: [{ $count: "total" }],
+        },
+      },
+    ];
+
+    const result = await User.aggregate(pipeline);
+
+    const customers = result[0].data;
+    const total = result[0].meta[0]?.total || 0;
+
+    res.json({
+      success: true,
+      data: customers,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (err) {
+    console.error("Admin customers pagination error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+}

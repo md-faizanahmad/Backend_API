@@ -131,11 +131,24 @@ export async function signup(req, res) {
     }
 
     sendUserCookie(res, user._id);
+    // createNotification({
+    //   type: "user_signup",
+    //   title: "New User Registered",
+    //   message: `${user.name} joined your store`,
+    //   link: `/dashboard/customers/${user._id}`,
+    // });
+
     createNotification({
       type: "user_signup",
       title: "New User Registered",
       message: `${user.name} joined your store`,
       link: `/dashboard/customers/${user._id}`,
+      meta: {
+        userId: user._id,
+        name: user.name,
+        email: user.email,
+        provider: user.provider || "email", // google / email / etc
+      },
     });
 
     return res.json({

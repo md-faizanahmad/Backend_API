@@ -41,276 +41,6 @@ router.post("/create-order", verifyUserCookie, async (req, res) => {
   }
 });
 
-/* -----------------------------------------------------------
-   2) VERIFY PAYMENT → Create actual order
------------------------------------------------------------ */
-// router.post("/verify-payment", verifyUserCookie, async (req, res) => {
-//   try {
-//     const session = req.signedCookies.checkout_session;
-
-//     if (!session)
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Checkout session expired" });
-
-//     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
-//       req.body;
-
-//     // Validate Razorpay signature
-//     const body = razorpay_order_id + "|" + razorpay_payment_id;
-
-//     const expectedSignature = crypto
-//       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-//       .update(body)
-//       .digest("hex");
-
-//     if (expectedSignature !== razorpay_signature) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Invalid Razorpay signature",
-//       });
-//     }
-
-//     // Retrieve user data
-//     const user = await User.findById(session.userId);
-//     if (!user)
-//       return res
-//         .status(404)
-//         .json({ success: false, message: "User not found" });
-
-//     const address = user.addresses.id(session.addressId);
-//     if (!address)
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Address not found" });
-
-//     // Validate items again & reduce stock
-//     for (const item of session.items) {
-//       const product = await Product.findById(item.productId);
-//       if (!product)
-//         return res.status(400).json({
-//           success: false,
-//           message: "Product not found: " + item.productId,
-//         });
-
-//       if (product.stock < item.qty)
-//         return res.json({
-//           success: false,
-//           message: `${product.name} is out of stock`,
-//         });
-
-//       await Product.updateOne(
-//         { _id: product._id },
-//         { $inc: { stock: -item.qty } }
-//       );
-//     }
-
-//     // Create actual order
-//     const order = await Order.create({
-//       user: session.userId,
-//       items: session.items.map((i) => ({
-//         product: i.productId,
-//         qty: i.qty,
-//         price: i.price,
-//       })),
-//       totalAmount: session.totalAmount,
-//       paymentStatus: "Paid",
-//       status: "placed",
-//       shippingAddress: address,
-//       paymentInfo: {
-//         orderId: razorpay_order_id,
-//         paymentId: razorpay_payment_id,
-//         signature: razorpay_signature,
-//       },
-//     });
-
-//     // admin notification
-//     createNotification({
-//       type: "new_order",
-//       title: "New Order Received",
-//       message: `Order #${order.paymentInfo.orderId} was placed`,
-//       link: `/dashboard/orders/${order._id}`,
-//     });
-
-//     // CLEAR COOKIE
-//     res.clearCookie("checkout_session", {
-//       httpOnly: true,
-//       secure: true,
-//       sameSite: "none",
-//       signed: true,
-//       domain: ".myazstore.shop",
-//       path: "/",
-//     });
-
-//     res.json({ success: true, orderId: order._id });
-//   } catch (err) {
-//     console.error("VERIFY PAYMENT ERROR:", err);
-//     res
-//       .status(500)
-//       .json({ success: false, message: "Server error: " + err.message });
-//   }
-// });
-
-///////////// update with route and email
-// routes/paymentRoutes.js
-
-// router.post("/verify-payment", verifyUserCookie, async (req, res) => {
-//   try {
-//     const session = req.signedCookies.checkout_session;
-
-//     if (!session) {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Checkout session expired" });
-//     }
-
-//     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
-//       req.body;
-
-//     /* -------------------------------------------------
-//        VERIFY RAZORPAY SIGNATURE
-//     -------------------------------------------------- */
-//     const body = `${razorpay_order_id}|${razorpay_payment_id}`;
-//     const expectedSignature = crypto
-//       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-//       .update(body)
-//       .digest("hex");
-
-//     if (expectedSignature !== razorpay_signature) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Invalid Razorpay signature",
-//       });
-//     }
-
-//     /* -------------------------------------------------
-//        FETCH USER + ADDRESS
-//     -------------------------------------------------- */
-//     const user = await User.findById(session.userId);
-//     if (!user) {
-//       return res
-//         .status(404)
-//         .json({ success: false, message: "User not found" });
-//     }
-
-//     const address = user.addresses.id(session.addressId);
-//     if (!address) {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Address not found" });
-//     }
-
-//     /* -------------------------------------------------
-//        VALIDATE ITEMS & REDUCE STOCK
-//     -------------------------------------------------- */
-//     for (const item of session.items) {
-//       const product = await Product.findById(item.productId);
-//       if (!product) {
-//         return res.status(400).json({
-//           success: false,
-//           message: `Product not found: ${item.productId}`,
-//         });
-//       }
-
-//       if (product.stock < item.qty) {
-//         return res.status(400).json({
-//           success: false,
-//           message: `${product.name} is out of stock`,
-//         });
-//       }
-
-//       await Product.updateOne(
-//         { _id: product._id },
-//         { $inc: { stock: -item.qty } }
-//       );
-//     }
-
-//     /* -------------------------------------------------
-//        CREATE ORDER
-//     -------------------------------------------------- */
-//     const order = await Order.create({
-//       user: user._id,
-//       items: session.items.map((i) => ({
-//         product: i.productId,
-//         qty: i.qty,
-//         price: i.price,
-//       })),
-//       totalAmount: session.totalAmount,
-//       paymentStatus: "Paid",
-//       status: "placed",
-//       shippingAddress: address,
-//       paymentInfo: {
-//         orderId: razorpay_order_id,
-//         paymentId: razorpay_payment_id,
-//         signature: razorpay_signature,
-//       },
-//     });
-
-//     /* -------------------------------------------------
-//        ADMIN NOTIFICATION (NON-BLOCKING)
-//     -------------------------------------------------- */
-//     createNotification({
-//       type: "new_order",
-//       title: "New Order Received",
-//       message: `Order #${order.paymentInfo.orderId} was placed`,
-//       link: `/dashboard/orders/${order._id}`,
-//     }).catch(() => {});
-
-//     /* -------------------------------------------------
-//        CLEAR CHECKOUT COOKIE
-//     -------------------------------------------------- */
-//     res.clearCookie("checkout_session", {
-//       httpOnly: true,
-//       secure: true,
-//       sameSite: "none",
-//       signed: true,
-//       domain: ".myazstore.shop",
-//       path: "/",
-//     });
-
-//     /* -------------------------------------------------
-//        RESPOND SUCCESS (DO NOT WAIT FOR EMAIL)
-//     -------------------------------------------------- */
-//     res.json({ success: true, orderId: order._id });
-
-//     /* -------------------------------------------------
-//        SEND EMAIL + INVOICE (BACKGROUND SAFE)
-//     -------------------------------------------------- */
-//     (async () => {
-//       try {
-//         const userEmail = await User.findById(order.user).select("email name");
-//         if (!userEmail?.email) {
-//           console.warn("Invoice email skipped: user email missing");
-//           return;
-//         }
-
-//         const pdfBuffer = await generateInvoiceBuffer(order);
-
-//         await sendEmail({
-//           to: userEmail.email,
-//           subject: `Invoice for Order ${order._id}`,
-//           html: `
-//             <p>Hi ${userEmail.name || "Customer"},</p>
-//             <p>Your order has been placed successfully.</p>
-//             <p>Please find your invoice attached.</p>
-//           `,
-//           attachments: [
-//             {
-//               filename: `invoice-${order._id}.pdf`,
-//               content: pdfBuffer,
-//             },
-//           ],
-//         });
-//       } catch (err) {
-//         console.error("POST-PAYMENT EMAIL FAILED:", err);
-//       }
-//     })();
-//   } catch (err) {
-//     console.error("VERIFY PAYMENT ERROR:", err);
-//     return res.status(500).json({ success: false, message: "Server error" });
-//   }
-// });
-
 ////////////////// update with invoice
 router.post("/verify-payment", verifyUserCookie, async (req, res) => {
   try {
@@ -404,11 +134,24 @@ router.post("/verify-payment", verifyUserCookie, async (req, res) => {
         signature: razorpay_signature,
       },
     });
+
     createNotification({
-      type: "new_order",
-      title: "New Order Received",
-      message: `Order #${order.paymentInfo.orderId} was placed`,
-      link: `/dashboard/orders/${order._id}`,
+      type: "payment_success",
+      title: "Payment Received",
+      message: `Payment received for Order #${order.id}`,
+      link: `/dashboard/orders/manage/${order._id}`,
+      meta: {
+        orderId: order._id,
+        orderNumber: order.orderId,
+        amount: order.totalAmount,
+        paymentGateway: "razorpay",
+        paymentId: order.paymentInfo.paymentId,
+
+        // 👤 CUSTOMER INFO (IMPORTANT)
+        userId: user.id,
+        userName: user.name || "Unknown",
+        userEmail: user.email || null,
+      },
     }).catch(() => {});
     /* -------------------------------
        GENERATE INVOICE (BUFFER)

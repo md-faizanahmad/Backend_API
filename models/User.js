@@ -1,19 +1,3 @@
-// // models/User.js
-// import mongoose from "mongoose";
-
-// const userSchema = new mongoose.Schema(
-//   {
-//     name: { type: String, required: true },
-//     email: { type: String, unique: true, required: true },
-//     password: { type: String },
-//     phone: { type: String },
-//     googleId: { type: String },
-//   },
-//   { timestamps: true }
-// );
-
-// export default mongoose.model("User", userSchema);
-///////////////new for wishlist-
 // models/User.js
 import mongoose from "mongoose";
 
@@ -51,5 +35,11 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+// 🔍 Text index for admin search (name, email, phone)
+userSchema.index({
+  name: "text",
+  email: "text",
+  phone: "text",
+});
 
 export default mongoose.model("User", userSchema);
